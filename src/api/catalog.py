@@ -15,8 +15,8 @@ def get_catalog():
         if (result != 0):
          return [
             {
-                "sku": "RED_POTION_0",
-                "name": "red potion",
+                "sku": "GREEN_POTION_0",
+                "name": "green potion",
                 "quantity": 0,
                 "price": 50,
                 "potion_type": [100, 0, 0, 0],

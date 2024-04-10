@@ -107,8 +107,9 @@ class CartCheckout(BaseModel):
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
     """ """
-    connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_potions -=1"))
-    connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold +=50")) 
+    with db.engine.begin() as connection:
+        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_potions -=1"))
+        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold +=50")) 
 
 
 

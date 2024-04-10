@@ -12,37 +12,35 @@ router = APIRouter(
 
 class Barrel(BaseModel):
     sku: str
-
     ml_per_barrel: int
     potion_type: list[int]
     price: int
-
     quantity: int
 
 @router.post("/deliver/{order_id}")
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
-    total_ml_per_barrel = 0
+    total_ml = 0
     total_price = 0
     with db.engine.begin() as connection:
-     for barrel in barrels_delivered:
-        total_ml_per_barrel += barrel.ml_per_barrel
-        total_price += barrel.price
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_ml = num_green_ml + {total_ml_per_barrel}  "))
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold + {total_price}  "))
-    print(f"Total ML per Barrel: {total_ml_per_barrel}, Total Price: {total_price}")
+        for barrel in barrels_delivered:
+            total_ml += barrel.ml_per_barrel * barrel.quantity  
+            total_price += barrel.price * barrel.quantity 
+            
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + :total_ml"), {'total_ml': total_ml})
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = gold + :total_price"), {'total_price': total_price})
+    print(f"Total ML per Barrel: {total_ml}, Total Price: {total_price}")
     return "OK"
 
 # Gets called once a day
-
 @router.post("/plan")
 def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     print(wholesale_catalog)
     with db.engine.begin() as connection:
-           num_green_potion_= connection.execute(sqlalchemy.text("SELECT num_green_potions FROM  global_invironmen")).scalar_one()
-    if (num_green_potion_ < 10):
+        num_green_potion = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).scalar_one()
+    if (num_green_potion < 10):
         return [
-        {
-            "sku": "SMALL_GREEN_BARREL",
-            "quantity": 3,
-        }
-    ]
+            {
+                "sku": "SMALL_GREEN_BARREL",
+                "quantity": 3,
+            }
+        ]
