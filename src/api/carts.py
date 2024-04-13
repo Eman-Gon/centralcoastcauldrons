@@ -108,8 +108,8 @@ class CartCheckout(BaseModel):
 def checkout(cart_id: int, cart_checkout: CartCheckout):
     """ """
     with db.engine.begin() as connection:
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_potions -=1"))
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold +=50")) 
+        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_potions = num_green_potions -1"))
+        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold + 50"))
 
 
 

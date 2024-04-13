@@ -27,7 +27,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
             total_price += barrel.price * barrel.quantity 
             
         connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = num_green_ml + :total_ml"), {'total_ml': total_ml})
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = gold + :total_price"), {'total_price': total_price})
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = gold - :total_price"), {'total_price': total_price})
     print(f"Total ML per Barrel: {total_ml}, Total Price: {total_price}")
     return "OK"
 
@@ -41,6 +41,6 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         return [
             {
                 "sku": "SMALL_GREEN_BARREL",
-                "quantity": 3,
+                "quantity": 1,
             }
         ]
