@@ -1,0 +1,2 @@
+#num_green_potion = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).scalar_one()
+ #    gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar_one()
