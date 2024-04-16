@@ -36,8 +36,10 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     print(wholesale_catalog)
     with db.engine.begin() as connection:
-        gold, num_green_potion = connection.execute(sqlalchemy.text("SELECT gold, num_green_potions FROM global_inventory")).first()
-    
+        #gold, num_green_potion = connection.execute(sqlalchemy.text("SELECT gold, num_green_potions FROM global_inventory")).first()
+     num_green_potion = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).scalar_one()
+     gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar_one()
+     
     barrel_plan = []
     for barrel in wholesale_catalog:
         if (num_green_potion < 10 and gold >= barrel.price and barrel.sku == 'SMALL_GREEN_BARREL'):
