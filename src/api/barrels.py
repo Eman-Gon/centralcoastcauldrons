@@ -81,7 +81,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
         for barrel in barrels_delivered:
             if barrel.sku == 'SMALL_GREEN_BARREL':
                 total_green_ml += barrel.ml_per_barrel * barrel.quantity
-            elif barrel.sku == 'LL':
+            elif barrel.sku == 'SMALL_RED_BARELL':
                 total_red_ml += barrel.ml_per_barrel * barrel.quantity
             elif barrel.sku == 'SMALL_BLUE_BARREL':
                 total_blue_ml += barrel.ml_per_barrel * barrel.quantity
