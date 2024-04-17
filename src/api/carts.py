@@ -87,6 +87,7 @@ def post_visits(visit_id: int, customers: list[Customer]):
 @router.post("/")
 def create_cart(new_cart: Customer):
     """ """
+    
     return {"cart_id": 1}
 
 
@@ -106,11 +107,34 @@ class CartCheckout(BaseModel):
 
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
-    """ """
+    """
+    Checkout the cart and update the inventory and gold based on the purchased potions.
+    """
     with db.engine.begin() as connection:
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_potions = num_green_potions -1"))
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold + 50"))
+        # Placeholder for getting the cart items for the given cart_id
+        # Replace this with your actual implementation to retrieve the cart items from the database
+        cart_items = [
+            {"sku": "GREEN_POTION", "quantity": 0},
+            {"sku": "RED_POTION", "quantity": 0},
+            {"sku": "BLUE_POTION", "quantity": 0},
+        ]
 
+        total_potions_bought = 0
+        total_gold_paid = 0
 
+        for item in cart_items:
+            if item["sku"] == "GREEN_POTION":
+                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_potions = num_green_potions - {item['quantity']}"))
+                total_gold_paid += 50 * item["quantity"]
+            elif item["sku"] == "RED_POTION":
+                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_potions = num_red_potions - {item['quantity']}"))
+                total_gold_paid += 50 * item["quantity"]
+            elif item["sku"] == "BLUE_POTION":
+                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_blue_potions = num_blue_potions - {item['quantity']}"))
+                total_gold_paid += 50 * item["quantity"]
 
-    return {"total_potions_bought": 1, "total_gold_paid": 50}
+            total_potions_bought += item["quantity"]
+
+        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold + {total_gold_paid}"))
+
+    return {"total_potions_bought": total_potions_bought, "total_gold_paid": total_gold_paid}
