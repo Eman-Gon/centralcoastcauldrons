@@ -5,18 +5,12 @@ from pydantic import BaseModel
 from src.api import auth
 from enum import Enum
 
-#global counter cart id that keeps track cart id
-#create it here
-#create list and access it by index same as cart id or one less
-
-#increaments carts in create_cart
-#instead hard values return the varable and return after it creates it, ex. if some has a cart it should create, cart1,cart,2. etc
-
 router = APIRouter(
     prefix="/carts",
     tags=["cart"],
     dependencies=[Depends(auth.get_api_key)],
 )
+customer_orders = {}
 
 class search_sort_options(str, Enum):
     customer_name = "customer_name"
@@ -94,7 +88,6 @@ def post_visits(visit_id: int, customers: list[Customer]):
 @router.post("/")
 def create_cart(new_cart: Customer):
     """ """
-
     return {"cart_id": 1}
 
 
@@ -104,7 +97,10 @@ class CartItem(BaseModel):
 
 @router.post("/{cart_id}/items/{item_sku}")
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
-    """ """
+    with db.engine.begin() as connection:
+        connection.execute(sqlalchemy.text(
+            "INSERT INTO cart_items (cart_id, potion_type, quantity, price) VALUES (:cart_id, :potion_type, :quantity, :price)"
+        ), {"cart_id": cart_id, "potion_type": item_sku, "quantity": cart_item.quantity, "price": 50})
 
     return "OK"
 
@@ -114,33 +110,28 @@ class CartCheckout(BaseModel):
 
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
-    """
-    Checkout the cart and update the inventory and gold based on the purchased potions.
-    """
     with db.engine.begin() as connection:
-        # Placeholder for getting the cart items for the given cart_id
-        # Replace this with your actual implementation to retrieve the cart items from the database
-        cart_items = [
-            {"sku": "GREEN_POTION", "quantity": 0},#put stament in here
-            {"sku": "RED_POTION", "quantity": 0},
-            {"sku": "BLUE_POTION", "quantity": 0},
-        ]
+        cart_items = connection.execute(sqlalchemy.text(
+            "SELECT potion_type, quantity, price FROM cart_items WHERE cart_id = :cart_id"
+        ), {"cart_id": cart_id}).fetchall()
 
         total_potions_bought = 0
         total_gold_paid = 0
 
         for item in cart_items:
-            if item["sku"] == "GREEN_POTION":
-                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_potions = num_green_potions - {item['quantity']}"))
-                total_gold_paid += 50 * item["quantity"]
-            elif item["sku"] == "RED_POTION":
-                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_potions = num_red_potions - {item['quantity']}"))
-                total_gold_paid += 50 * item["quantity"]
-            elif item["sku"] == "BLUE_POTION":
-                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_blue_potions = num_blue_potions - {item['quantity']}"))
-                total_gold_paid += 50 * item["quantity"]
+            potion_type = item[0]
+            quantity = item[1]
+            price = item[2]
 
-            total_potions_bought += item["quantity"]
+            if potion_type == "GREEN":
+                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_potions = num_green_potions - {quantity}"))
+            elif potion_type == "RED":
+                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_potions = num_red_potions - {quantity}"))
+            elif potion_type == "BLUE":
+                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_blue_potions = num_blue_potions - {quantity}"))
+
+            total_potions_bought += quantity
+            total_gold_paid += price * quantity
 
         connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold + {total_gold_paid}"))
 
