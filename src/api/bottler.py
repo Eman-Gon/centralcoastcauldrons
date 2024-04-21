@@ -17,18 +17,21 @@ class PotionInventory(BaseModel):
 
 @router.post("/deliver/{order_id}")
 def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
-    print(f"potions delievered: {potions_delivered} order_id: {order_id}")
+    print(f"potions delivered: {potions_delivered} order_id: {order_id}")
     with db.engine.begin() as connection:
         for potion in potions_delivered:
             if potion.potion_type == [0, 100, 0, 0]:
                 connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_ml = num_green_ml - {100 * potion.quantity}"))
-                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_potions = num_green_potions + {potion.quantity}"))
+                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET num_green_potions = num_green_potions + {potion.quantity}"))
             elif potion.potion_type == [100, 0, 0, 0]:
                 connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_ml = num_red_ml - {100 * potion.quantity}"))
-                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_potions = num_red_potions + {potion.quantity}"))
+                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET num_red_potions = num_red_potions + {potion.quantity}"))
             elif potion.potion_type == [0, 0, 100, 0]:
                 connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_blue_ml = num_blue_ml - {100 * potion.quantity}"))
-                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_blue_potions = num_blue_potions + {potion.quantity}"))
+                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET num_blue_potions = num_blue_potions + {potion.quantity}"))
+            elif potion.potion_type == [0, 0, 0, 100]:
+                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_dark_ml = num_dark_ml - {100 * potion.quantity}"))
+                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET num_dark_potions = num_dark_potions + {potion.quantity}"))
     return "OK"
 
 @router.post("/plan")
@@ -36,41 +39,38 @@ def get_bottle_plan():
     """
     Go from barrel to bottle.
     """
-
-    # Each bottle has a quantity of what proportion of red, blue, and
-    # green potion to add.
-    # Expressed in integers from 1 to 100 that must sum up to 100.
-
-    # Initial logic: bottle all barrels into red potions.
-
-    
     with db.engine.begin() as connection:
         num_green_ml = connection.execute(sqlalchemy.text(f"SELECT num_green_ml FROM global_inventory")).scalar_one()
         num_red_ml = connection.execute(sqlalchemy.text(f"SELECT num_red_ml FROM global_inventory")).scalar_one()
         num_blue_ml = connection.execute(sqlalchemy.text(f"SELECT num_blue_ml FROM global_inventory")).scalar_one()
+        num_dark_ml = connection.execute(sqlalchemy.text(f"SELECT num_dark_ml FROM global_inventory")).scalar_one()
 
         plan = []
-        if (num_green_ml >= 100):
-            plan.append(
-                {
-                    "potion_type": [0, 100, 0, 0],
-                    "quantity": num_green_ml//100,
-                }
-            )
-        if (num_red_ml >= 100):
-            plan.append(
-                {
-                    "potion_type": [100, 0, 0, 0],
-                    "quantity": num_red_ml//100,
-                }
-            )
-        if (num_blue_ml >= 100):
-            plan.append(
-                {
-                    "potion_type": [0, 0, 100, 0],
-                    "quantity": num_blue_ml//100,
-                }
-            )
+        
+        if num_green_ml >= 100:
+            plan.append({
+                "potion_type": [0, 100, 0, 0],
+                "quantity": num_green_ml // 100
+            })
+        
+        if num_red_ml >= 100:
+            plan.append({
+                "potion_type": [100, 0, 0, 0],
+                "quantity": num_red_ml // 100
+            })
+        
+        if num_blue_ml >= 100:
+            plan.append({
+                "potion_type": [0, 0, 100, 0],
+                "quantity": num_blue_ml // 100
+            })
+        
+        if num_dark_ml >= 100:
+            plan.append({
+                "potion_type": [0, 0, 0, 100],
+                "quantity": num_dark_ml // 100
+            })
+
         return plan
 
 if __name__ == "__main__":
