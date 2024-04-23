@@ -22,19 +22,22 @@ def get_inventory():
         for sku, quantity in potion_rows:
             potion_counts[sku] = quantity
 
-        # Retrieve ml quantities from the global_inventory table
-        ml_query = sqlalchemy.text("SELECT num_green_ml, num_red_ml, num_blue_ml, num_dark_ml FROM global_inventory")
-        ml_result = connection.execute(ml_query)
-        ml_rows = ml_result.fetchall()
-        total_ml = 0
-        if ml_rows:
-            ml_quantities = ml_rows[0]  # Assuming only one row
-            total_ml = sum(ml_quantities)
-
+        #result = connection.execute(sqlalchemy.text("SELECT num_green_ml, num_red_ml, num_blue_ml, num_dark_ml FROM global_inventory")).one()
+        num_green_ml, num_red_ml, num_blue_ml, num_dark_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml, num_red_ml, num_blue_ml, num_dark_ml FROM global_inventory")).one()
+        total_number_of_potions = sum(potion_counts.values())
+        total_ml_in_barrels = num_green_ml + num_red_ml + num_blue_ml + num_dark_ml
+        gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar_one()
+    
     return {
-        "potion_counts": potion_counts,
-        "ml_in_barrels": total_ml
-    }
+            "number_of_potions": total_number_of_potions,
+            "ml_in_barrels": total_ml_in_barrels,
+            "gold": gold
+        }
+    # return {
+    #     "number_of_potions": 0,#sum up potion
+    #     "ml_in_barrels": 0,#sum up ml           SUM FUNCTION((query ml).scalars())
+    #     "gold": 0#gold 
+    # }
 # Gets called once a day
 @router.post("/plan")
 def get_capacity_plan():
