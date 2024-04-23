@@ -14,20 +14,27 @@ router = APIRouter(
 @router.get("/audit")
 def get_inventory():
     with db.engine.begin() as connection:
-        gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar_one()
-        
-        num_green_potions = connection.execute(sqlalchemy.text("SELECT num_green_potions FROM global_inventory")).scalar_one()
-        num_red_potions = connection.execute(sqlalchemy.text("SELECT num_red_potions FROM global_inventory")).scalar_one()
-        num_blue_potions = connection.execute(sqlalchemy.text("SELECT num_blue_potions FROM global_inventory")).scalar_one()
-        total_potions = num_green_potions + num_red_potions + num_blue_potions
-        
-        num_green_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml FROM global_inventory")).scalar_one()
-        num_red_ml = connection.execute(sqlalchemy.text("SELECT num_red_ml FROM global_inventory")).scalar_one()
-        num_blue_ml = connection.execute(sqlalchemy.text("SELECT num_blue_ml FROM global_inventory")).scalar_one()
-        total_ml = num_green_ml + num_red_ml + num_blue_ml
-        
-    return {"number_of_potions": total_potions, "ml_in_barrels": total_ml, "gold": gold}
+        # Retrieve potion quantities from the potion_inventory table
+        potion_query = sqlalchemy.text("SELECT sku, quantity FROM potion_inventory")
+        potion_result = connection.execute(potion_query)
+        potion_counts = {}
+        potion_rows = potion_result.fetchall()
+        for sku, quantity in potion_rows:
+            potion_counts[sku] = quantity
 
+        # Retrieve ml quantities from the global_inventory table
+        ml_query = sqlalchemy.text("SELECT num_green_ml, num_red_ml, num_blue_ml, num_dark_ml FROM global_inventory")
+        ml_result = connection.execute(ml_query)
+        ml_rows = ml_result.fetchall()
+        total_ml = 0
+        if ml_rows:
+            ml_quantities = ml_rows[0]  # Assuming only one row
+            total_ml = sum(ml_quantities)
+
+    return {
+        "potion_counts": potion_counts,
+        "ml_in_barrels": total_ml
+    }
 # Gets called once a day
 @router.post("/plan")
 def get_capacity_plan():
