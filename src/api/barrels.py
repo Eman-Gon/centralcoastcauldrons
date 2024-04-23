@@ -58,8 +58,11 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
         num_blue_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 3")).scalar_one()
         num_dark_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 4")).scalar_one()
         gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar_one()
-
+    
+        smallBarrels = [] 
+       
         barrel_plan = []
+
         for barrel in wholesale_catalog:
             if barrel.sku == 'SMALL_GREEN_BARREL' and num_green_potion < 10 and gold >= barrel.price:
                 barrel_plan.append({"sku": barrel.sku, "quantity": 1}) #gold -=10 the price of the barrel
@@ -74,5 +77,61 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                 barrel_plan.append({"sku": barrel.sku, "quantity": 1})
                 gold -=barrel.price
 
+            if('small' in barrel.sku):
+                smallBarrels.append(barrel)
 
-        return barrel_plan
+        for color in smallBarrels:
+            if gold >= color.price:
+                barrel_plan.append({"sku": small_barrel.sku, "quantity": 1})
+                gold -= small_barrel.price
+            else:
+                break
+
+            return barrel_plan
+
+
+
+
+# find small barrels first list or dictanry 
+
+
+# find all small barrels first ->small barrels
+# for 'color' in sorted 
+# if barrel of potion_type
+# exist in small post_deliver_barrels:
+# if (buyable):
+#     buy gold -= Priceelse break
+
+
+
+#         return barrel_plan
+    
+#         query all color mL 
+#     sort by ascending order
+
+#     for each color:
+#         try to buy a small barrel with your gold
+#         update gold in hand accordingly
+#         if you don't have enough gold, break out of loop
+    
+#     return plan
+
+#     qury them all then sort it see if you can buy that barrel first small barrel
+
+
+
+
+
+# check if there if not continue and try to buy it
+
+# find small barrels first with list or dictanry 
+
+
+# find all small barrels first ->small barrels
+# for 'color' in sorted 
+# if barrel of potion_type
+# exist in small post_deliver_barrels:
+# if (buyable):
+#     buy gold -= Price break
+
+
