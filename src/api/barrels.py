@@ -6,7 +6,7 @@ from src.api import auth
 
 from sqlalchemy.exc import IntegrityError
 
-from typing import List, Tuple
+
 
 router = APIRouter(
     prefix="/barrels",
@@ -52,35 +52,84 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 
 # Gets called once a day
 @router.post("/plan")
-def get_wholesale_purchase_plan(wholesale_catalog: List[Barrel]):
-   print(wholesale_catalog)
-   with db.engine.begin() as connection:
-       num_green_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 2")).scalar_one()
-       num_red_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 1")).scalar_one()
-       num_blue_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 3")).scalar_one()
-       num_dark_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 4")).scalar_one()
-       gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar_one()
+def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
+    print(wholesale_catalog)
+    with db.engine.begin() as connection:
+        num_green_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 2")).scalar_one()
+        num_red_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 1")).scalar_one()
+        num_blue_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 3")).scalar_one()
+        num_dark_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 4")).scalar_one()
+        gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar_one()
 
-       # Sort small barrels by ascending ml_per_barrel
-       sorted_small_barrels = sorted([barrel for barrel in wholesale_catalog if 'small' in barrel.sku.lower()], key=lambda x: x.ml_per_barrel)
+        # Sort small barrels by ascending ml_per_barrel
+        sorted_small_barrels = sorted((barrel for barrel in wholesale_catalog if 'SMALL' in barrel.sku), key=lambda barrel: barrel.ml_per_barrel)
 
-       potion_quantities: List[Tuple[Barrel, int]] = [
-           (barrel, num_green_potion) for barrel in sorted_small_barrels if barrel.potion_type == [0, 1, 0, 0]
-       ] + [
-           (barrel, num_red_potion) for barrel in sorted_small_barrels if barrel.potion_type == [1, 0, 0, 0]
-       ] + [
-           (barrel, num_blue_potion) for barrel in sorted_small_barrels if barrel.potion_type == [0, 0, 1, 0]
-       ] + [
-           (barrel, num_dark_potion) for barrel in sorted_small_barrels if barrel.potion_type == [0, 0, 0, 1]
-       ]
-#must be invenotry for ml but i still going by potion but for version 3 itll be better to quary from ml and should be based just on the logic if im going to have multiple potions
-       barrel_plan = []
+        # Query all color potions in order of ml_per_barrel
+        potion_quantities = []
+        for barrel in sorted_small_barrels:
+            if barrel.potion_type == [0, 1, 0, 0]:
+                potion_quantities.append((barrel, num_green_potion))
+            elif barrel.potion_type == [1, 0, 0, 0]:
+                potion_quantities.append((barrel, num_red_potion))
+            elif barrel.potion_type == [0, 0, 1, 0]:
+                potion_quantities.append((barrel, num_blue_potion))
+            elif barrel.potion_type == [0, 0, 0, 1]:
+                potion_quantities.append((barrel, num_dark_potion))
 
-       for barrel, potion_qty in potion_quantities:
-           if potion_qty < 10 and gold >= barrel.price:
-               barrel_plan.append({"sku": barrel.sku, "quantity": 1})
-               gold -= barrel.price
-           else:
-               break
+        # Sort the barrels in ascending order based on ml_per_barrel
+        potion_quantities.sort(key=lambda x: x[0].ml_per_barrel)
 
-       return barrel_plan
+        barrel_plan = []
+        for barrel, potion_qty in potion_quantities:
+            if potion_qty < 10 and gold >= barrel.price:
+                barrel_plan.append({"sku": barrel.sku, "quantity": 1})
+                gold -= barrel.price
+            else:
+                break
+
+    return barrel_plan
+    
+
+# find small barrels first list or dictanry 
+
+
+# find all small barrels first ->small barrels
+# for 'color' in sorted 
+# if barrel of potion_type
+# exist in small post_deliver_barrels:
+# if (buyable):
+#     buy gold -= Priceelse break
+
+
+
+#         return barrel_plan
+    
+        # query all color in order mL 
+    # sort the barrels by ascending order
+
+    # for each color:
+    #     try to buy a small barrel with your gold
+    #     update gold in hand accordingly
+    #     if you don't have enough gold, break out of loop
+    
+    # return plan
+
+#     qury them all then sort it see if you can buy that barrel first small barrel
+
+
+
+
+
+# check if there if not continue and try to buy it
+
+# find small barrels first list or dictanry 
+
+
+# find all small barrels first ->small barrels
+# for 'color' in sorted 
+# if barrel of potion_type
+# exist in small post_deliver_barrels:
+# if (buyable):
+#     buy gold -= Priceelse break
+
+
