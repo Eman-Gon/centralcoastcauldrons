@@ -100,30 +100,27 @@ class CartItem(BaseModel):
 
 @router.post("/{cart_id}/items/{item_sku}")
 def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
-    try:
-        with db.engine.begin() as connection:
-            result = connection.execute(sqlalchemy.text("SELECT id FROM potion_inventory WHERE sku = :item_sku"), {"item_sku": item_sku})
-            potion_id = result.scalar()
+    with db.engine.begin() as connection:
+        result = connection.execute(sqlalchemy.text("SELECT id FROM potion_inventory WHERE sku = :item_sku"), {"item_sku": item_sku})
+        potion_id = result.scalar()
 
-            if potion_id:
-                result = connection.execute(sqlalchemy.text("SELECT quantity FROM cart_sales WHERE cart_id = :cart_id AND potion_id = :potion_id"),
-                                            {"cart_id": cart_id, "potion_id": potion_id})
-                existing_quantity = result.scalar()
+        if potion_id:
+            result = connection.execute(sqlalchemy.text("SELECT quantity FROM cart_sales WHERE cart_id = :cart_id AND potion_id = :potion_id"),
+                                        {"cart_id": cart_id, "potion_id": potion_id})
+            existing_quantity = result.scalar()
 
-                if existing_quantity:
-                    # Update the quantity if the item already exists
-                    connection.execute(sqlalchemy.text("UPDATE cart_sales SET quantity = :quantity WHERE cart_id = :cart_id AND potion_id = :potion_id"),
-                                       {"quantity": cart_item.quantity, "cart_id": cart_id, "potion_id": potion_id})
-                else:
-                    # Insert a new entry if the item doesn't exist
-                    connection.execute(sqlalchemy.text("INSERT INTO cart_sales (cart_id, potion_id, quantity) VALUES (:cart_id, :potion_id, :quantity)"),
-                                       {"cart_id": cart_id, "potion_id": potion_id, "quantity": cart_item.quantity})
-
-                return "OK"
+            if existing_quantity:
+                # Update the quantity if the item already exists
+                connection.execute(sqlalchemy.text("UPDATE cart_sales SET quantity = :quantity WHERE cart_id = :cart_id AND potion_id = :potion_id"),
+                                   {"quantity": cart_item.quantity, "cart_id": cart_id, "potion_id": potion_id})
             else:
-                return "Potion not found"
-    except Exception as e:
-        return str(e)
+                # Insert a new entry if the item doesn't exist
+                connection.execute(sqlalchemy.text("INSERT INTO cart_sales (cart_id, potion_id, quantity) VALUES (:cart_id, :potion_id, :quantity)"),
+                                   {"cart_id": cart_id, "potion_id": potion_id, "quantity": cart_item.quantity})
+
+            return "OK"
+        else:
+            return "Potion not found"
 
 class CartCheckout(BaseModel):
     payment: str
