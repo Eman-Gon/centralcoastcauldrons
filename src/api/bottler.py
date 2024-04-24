@@ -22,16 +22,16 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
         for potion in potions_delivered:
             if potion.potion_type == [0, 100, 0, 0]:
                 connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_ml = num_green_ml - {100 * potion.quantity}"))
-                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET num_green_potions = num_green_potions + {potion.quantity}"))
+                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity =  {potion.quantity} + quantity where id = 2" ))
             elif potion.potion_type == [100, 0, 0, 0]:
                 connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_ml = num_red_ml - {100 * potion.quantity}"))
-                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET num_red_potions = num_red_potions + {potion.quantity}"))
+                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity =  {potion.quantity} + quantity where id = 1" ))
             elif potion.potion_type == [0, 0, 100, 0]:
                 connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_blue_ml = num_blue_ml - {100 * potion.quantity}"))
-                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET num_blue_potions = num_blue_potions + {potion.quantity}"))
+                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity =  {potion.quantity} + quantity where id = 3" ))
             elif potion.potion_type == [0, 0, 0, 100]:
                 connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_dark_ml = num_dark_ml - {100 * potion.quantity}"))
-                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET num_dark_potions = num_dark_potions + {potion.quantity}"))
+                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity = {potion.quantity} + quantity where id = 4" ))
     return "OK"
 
 @router.post("/plan")
