@@ -46,7 +46,12 @@ def get_bottle_plan():
         num_dark_ml = connection.execute(sqlalchemy.text(f"SELECT num_dark_ml FROM global_inventory")).scalar_one()
 
         plan = []
-        
+
+        if num_red_ml and num_green_ml  >= 50:
+            plan.append({
+                "potion_type": [50, 50, 0, 0],
+                "quantity": min(num_red_ml, num_green_ml) // 50
+            })
         if num_green_ml >= 100:
             plan.append({
                 "potion_type": [0, 100, 0, 0],
@@ -72,6 +77,6 @@ def get_bottle_plan():
             })
 
         return plan
-
+#remove the hard code
 if __name__ == "__main__":
     print(get_bottle_plan())
