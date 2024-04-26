@@ -143,5 +143,5 @@ if __name__ == "__main__":
 
         # return plan
 #remove the hard code
-if __name__ == "__main__":
-    print(get_bottle_plan())
+# if __name__ == "__main__":
+#     print(get_bottle_plan())
