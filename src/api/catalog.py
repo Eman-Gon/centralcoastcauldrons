@@ -24,6 +24,7 @@ def get_catalog():
                         x.num_green_potions,
                         x.num_blue_potions,
                         x.num_dark_potions,
+                        x.num_yellow_potions
                     ]
 
                 })

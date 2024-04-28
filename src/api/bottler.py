@@ -36,74 +36,71 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
 
 @router.post("/plan")
 def get_bottle_plan():
-    """Go from barrel to bottle."""
+    """
+    Go from barrel to bottle.
+    """
     with db.engine.begin() as connection:
         num_green_ml = connection.execute(sqlalchemy.text(f"SELECT num_green_ml FROM global_inventory")).scalar_one()
         num_red_ml = connection.execute(sqlalchemy.text(f"SELECT num_red_ml FROM global_inventory")).scalar_one()
         num_blue_ml = connection.execute(sqlalchemy.text(f"SELECT num_blue_ml FROM global_inventory")).scalar_one()
         num_dark_ml = connection.execute(sqlalchemy.text(f"SELECT num_dark_ml FROM global_inventory")).scalar_one()
 
-        plan = []
+    potion_types = [num_green_ml, num_red_ml, num_blue_ml, num_dark_ml]
+    plan = []
 
-        # Handle pure potion types
-        if num_red_ml and num_green_ml >= 50:
+    while True:
+        made_potion = False
+        # Yellow
+        if potion_types[2] >= 50 and potion_types[1] >= 50:
             plan.append({
-                "potion_type": [50, 50, 0, 0],
-                "quantity": min(num_red_ml, num_green_ml) 
+                "quantity": 1,
+                "potion_type": [50, 50, 0, 0]
             })
-        if num_green_ml >= 100:
-            plan.append({
-                "potion_type": [0, 100, 0, 0],
-                "quantity": num_green_ml // 100
-            })
-        if num_red_ml >= 100:
-            plan.append({
-                "potion_type": [100, 0, 0, 0],
-                "quantity": num_red_ml // 100
-            })
-        if num_blue_ml >= 100:
-            plan.append({
-                "potion_type": [0, 0, 100, 0],
-                "quantity": num_blue_ml // 100
-            })
-        if num_dark_ml >= 100:
-            plan.append({
-                "potion_type": [0, 0, 0, 100],
-                "quantity": num_dark_ml // 100
-            })
+            potion_types[2] -= 50
+            potion_types[1] -= 50
+            made_potion = True
 
-        # This part iterates over the potion type in potions list from the potion_inventory table. calculates the quantities
-        for potion in potions:
-            potion_type = [potion[3] * 50, potion[2] * 50, potion[1] * 50, potion[0] * 50]
-            print(potions)
+        # Green
+        elif potion_types[0] >= 100:
+            plan.append({
+                "quantity": 1,
+                "potion_type": [100, 0, 0, 0]
+            })
+            potion_types[0] -= 100
+            made_potion = True
 
-           # checks if quantities in the global_inventory are greater than or equal to the
-           # quantities for (potion_type). If not met there are not enough quantities in the global inventory to create the current potion type
-            if num_red_ml >= potion_type[0] and num_green_ml >= potion_type[1] and num_blue_ml >= potion_type[2] and num_dark_ml >= potion_type[3]:
-            #  so creates a list of current qunntities in the global inventory.  
-              #  calculates the maximum quantity 
-                available_quantities = [num_red_ml, num_green_ml, num_blue_ml, num_dark_ml]
-                max_quantities = []
-                for i in range(4):
-                    if potion_type[i] > 0 and available_quantities[i] >= potion_type[i]:
-                        max_quantities.append(available_quantities[i] // potion_type[i])
-                    else:
-                        max_quantities.append(0)
-                       # if quantity is less  appends 0 to the max_quantities list.
-                max_quantity = min(max_quantities)
-                # Find the max quantity that can be produced without going over the available quantity
-                if max_quantity > 0:
-                    plan.append({
-                        "potion_type": potion_type,
-                        "quantity": max_quantity
-                    })
-                    num_red_ml -= max_quantity * potion_type[0]
-                    num_green_ml -= max_quantity * potion_type[1]
-                    num_blue_ml -= max_quantity * potion_type[2]
-                    num_dark_ml -= max_quantity * potion_type[3]
-                   # appends a dictionary to the plan list with the potion_type and the calculated max_quantity
+        # Red
+        elif potion_types[1] >= 100:
+            plan.append({
+                "quantity": 1,
+                "potion_type": [0, 100, 0, 0]
+            })
+            potion_types[1] -= 100
+            made_potion = True
 
-        return plan
-    
+        # Blue
+        elif potion_types[2] >= 100:
+            plan.append({
+                "quantity": 1,
+                "potion_type": [0, 0, 100, 0]
+            })
+            potion_types[2] -= 100
+            made_potion = True
+
+        # Dark
+        elif potion_types[3] >= 100:
+            plan.append({
+                "quantity": 1,
+                "potion_type": [0, 0, 0, 100]
+            })
+            potion_types[3] -= 100
+            made_potion = True
+
+        if not made_potion:
+            break
+
+    return plan
+
 if __name__ == "__main__":
-    print(get_bottle_plan())
+    plan = get_bottle_plan()
+    print("Plan:", plan)
