@@ -19,13 +19,7 @@ def get_catalog():
                     "name": x.sku,
                     "quantity": x.quantity,
                     "price": x.price,
-                    "potion_type": [
-                        x.num_red_potions,
-                        x.num_green_potions,
-                        x.num_blue_potions,
-                        x.num_dark_potions,
-                        x.num_yellow_potions
-                    ]
+                    "potion_type": x.potion_type
 
                 })
                 numItems += 1
