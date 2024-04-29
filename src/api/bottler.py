@@ -36,70 +36,42 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
 
 @router.post("/plan")
 def get_bottle_plan():
-    """
-    Go from barrel to bottle.
-    """
+    """ Go from barrel to bottle. """
     with db.engine.begin() as connection:
         num_green_ml = connection.execute(sqlalchemy.text(f"SELECT num_green_ml FROM global_inventory")).scalar_one()
         num_red_ml = connection.execute(sqlalchemy.text(f"SELECT num_red_ml FROM global_inventory")).scalar_one()
         num_blue_ml = connection.execute(sqlalchemy.text(f"SELECT num_blue_ml FROM global_inventory")).scalar_one()
         num_dark_ml = connection.execute(sqlalchemy.text(f"SELECT num_dark_ml FROM global_inventory")).scalar_one()
 
-    potion_types = [num_green_ml, num_red_ml, num_blue_ml, num_dark_ml]
-    plan = []
+        plan = []
 
-    while True:
-        made_potion = False
         # Yellow
-        if potion_types[2] >= 50 and potion_types[1] >= 50:
-            plan.append({
-                "quantity": 1,
-                "potion_type": [50, 50, 0, 0]
-            })
-            potion_types[2] -= 50
-            potion_types[1] -= 50
-            made_potion = True
+        while num_blue_ml >= 50 and num_red_ml >= 50:
+            plan.append({"quantity": 1, "potion_type": [50, 50, 0, 0]})
+            num_blue_ml -= 50
+            num_red_ml -= 50
 
         # Green
-        elif potion_types[0] >= 100:
-            plan.append({
-                "quantity": 1,
-                "potion_type": [100, 0, 0, 0]
-            })
-            potion_types[0] -= 100
-            made_potion = True
+        while num_green_ml >= 100:
+            plan.append({"quantity": 1, "potion_type": [100, 0, 0, 0]})
+            num_green_ml -= 100
 
         # Red
-        elif potion_types[1] >= 100:
-            plan.append({
-                "quantity": 1,
-                "potion_type": [0, 100, 0, 0]
-            })
-            potion_types[1] -= 100
-            made_potion = True
+        while num_red_ml >= 100:
+            plan.append({"quantity": 1, "potion_type": [0, 100, 0, 0]})
+            num_red_ml -= 100
 
         # Blue
-        elif potion_types[2] >= 100:
-            plan.append({
-                "quantity": 1,
-                "potion_type": [0, 0, 100, 0]
-            })
-            potion_types[2] -= 100
-            made_potion = True
+        while num_blue_ml >= 100:
+            plan.append({"quantity": 1, "potion_type": [0, 0, 100, 0]})
+            num_blue_ml -= 100
 
         # Dark
-        elif potion_types[3] >= 100:
-            plan.append({
-                "quantity": 1,
-                "potion_type": [0, 0, 0, 100]
-            })
-            potion_types[3] -= 100
-            made_potion = True
+        while num_dark_ml >= 100:
+            plan.append({"quantity": 1, "potion_type": [0, 0, 0, 100]})
+            num_dark_ml -= 100
 
-        if not made_potion:
-            break
-
-    return plan
+        return plan
 
 if __name__ == "__main__":
     plan = get_bottle_plan()
