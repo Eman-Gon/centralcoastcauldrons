@@ -12,37 +12,29 @@ router = APIRouter(
 )
 
 class PotionInventory(BaseModel):
-    potion_id: int
+    potion_type: list[int]
     quantity: int
 
 @router.post("/deliver/{order_id}")
 def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
     print(f"potions delivered: {potions_delivered} order_id: {order_id}")
     with db.engine.begin() as connection:
-        # Query the potion_type from the potion_inventory table
-        potion_types_result = connection.execute(sqlalchemy.text(f"SELECT id, potion_type FROM potion_inventory"))
-        potion_types_map = {potion_id: potion_type for potion_id, potion_type in potion_types_result}
-
         for potion in potions_delivered:
-            if potion.potion_id in potion_types_map:
-                potion_type = potion_types_map[potion.potion_id]
-                if potion_type == [1, 0, 0, 0]:  # Red
-                    connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_ml = num_red_ml - {100 * potion.quantity}"))
-                    connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity = quantity + {potion.quantity} WHERE id = {potion.potion_id}"))
-                elif potion_type == [0, 1, 0, 0]:  # Green
-                    connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_ml = num_green_ml - {100 * potion.quantity}"))
-                    connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity = quantity + {potion.quantity} WHERE id = {potion.potion_id}"))
-                elif potion_type == [0, 0, 1, 0]:  # Blue
-                    connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_blue_ml = num_blue_ml - {100 * potion.quantity}"))
-                    connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity = quantity + {potion.quantity} WHERE id = {potion.potion_id}"))
-                elif potion_type == [0, 0, 0, 1]:  # Dark
-                    connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_dark_ml = num_dark_ml - {100 * potion.quantity}"))
-                    connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity = quantity + {potion.quantity} WHERE id = {potion.potion_id}"))
-                elif potion_type == [0, 1, 1, 0]:  # Yellow
-                    connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_ml = num_red_ml - {50 * potion.quantity}, num_blue_ml = num_blue_ml - {50 * potion.quantity}"))
-                    connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity = quantity + {potion.quantity} WHERE id = {potion.potion_id}"))
-
+            if potion.potion_type == [0, 100, 0, 0]:
+                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_ml = num_green_ml - {100 * potion.quantity}"))
+                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity =  {potion.quantity} + quantity where id = 2" ))
+            elif potion.potion_type == [100, 0, 0, 0]:
+                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_ml = num_red_ml - {100 * potion.quantity}"))
+                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity =  {potion.quantity} + quantity where id = 1" ))
+            elif potion.potion_type == [0, 0, 100, 0]:
+                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_blue_ml = num_blue_ml - {100 * potion.quantity}"))
+                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity =  {potion.quantity} + quantity where id = 3" ))
+            elif potion.potion_type == [0, 0, 0, 100]:
+                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_dark_ml = num_dark_ml - {100 * potion.quantity}"))
+                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity = {potion.quantity} + quantity where id = 4" ))
     return "OK"
+
+
 
 @router.post("/plan")
 def get_bottle_plan():

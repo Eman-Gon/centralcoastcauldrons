@@ -18,4 +18,3 @@ def post_time(timestamp: Timestamp):
     Share current time.
     """
     return "OK"
-
