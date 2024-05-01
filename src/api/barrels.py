@@ -6,8 +6,6 @@ from src.api import auth
 
 from sqlalchemy.exc import IntegrityError
 
-
-
 router = APIRouter(
     prefix="/barrels",
     tags=["barrels"],

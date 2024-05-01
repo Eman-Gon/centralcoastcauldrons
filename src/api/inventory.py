@@ -58,10 +58,24 @@ class CapacityPurchase(BaseModel):
 
 # Gets called once a day
 @router.post("/deliver/{order_id}")
-def deliver_capacity_plan(capacity_purchase : CapacityPurchase, order_id: int):
-    """ 
-    Start with 1 capacity for 50 potions and 1 capacity for 10000 ml of potion. Each additional 
-    capacity unit costs 1000 gold.
+def deliver_capacity_plan(capacity_purchase: CapacityPurchase, order_id: int):
     """
+    Start with 1 capacity for 50 potions and 1 capacity for 10000 ml of potion.
+    Each additional capacity unit costs 1000 gold.
+    """
+    with db.engine.begin() as connection:
+        gold = connection.execute(sqlalchemy.text(f"SELECT gold FROM global_inventory")).scalar_one()
+
+        # Calculate the total cost of the capacity purchase
+        total_cost = (capacity_purchase.potion_capacity // 50) * 1000 + (capacity_purchase.ml_capacity // 10000) * 1000
+
+        if total_cost > gold:
+            return "Insufficient gold to purchase the capacity plan."
+
+        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold - {total_cost}"))
+
+        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET capacity_potion = capacity_potion + {capacity_purchase.potion_capacity}"))
+
+        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET capacity_ml = capacity_ml + {capacity_purchase.ml_capacity}"))
 
     return "OK"
