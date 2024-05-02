@@ -52,61 +52,46 @@ def get_bottle_plan():
         potion_types_result = connection.execute(sqlalchemy.text(f"SELECT id, potion_type FROM potion_inventory"))
         potion_types_map = {potion_id: potion_type for potion_id, potion_type in potion_types_result}
 
-    potion_types = [num_green_ml, num_red_ml, num_blue_ml, num_dark_ml]
-    plan = []
+    potion_types = [num_red_ml, num_green_ml, num_blue_ml, num_dark_ml]
+    potion_counts = {potion_id: 0 for potion_id in potion_types_map.keys()}
 
     while True:
         made_potion = False
         # Yellow (id: 5)
         if 5 in potion_types_map and potion_types[2] >= 50 and potion_types[1] >= 50:
-            plan.append({
-                "quantity": 1,
-                "potion_type": potion_types_map[5]
-            })
+            potion_counts[5] += 1
             potion_types[2] -= 50
             potion_types[1] -= 50
             made_potion = True
 
         # Green (id: 2)
         elif 2 in potion_types_map and potion_types[0] >= 100:
-            plan.append({
-                "quantity": 1,
-                "potion_type": potion_types_map[2]
-            })
+            potion_counts[2] += 1
             potion_types[0] -= 100
             made_potion = True
 
         # Red (id: 1)
         elif 1 in potion_types_map and potion_types[1] >= 100:
-            plan.append({
-                "quantity": 1,
-                "potion_type": potion_types_map[1]
-            })
+            potion_counts[1] += 1
             potion_types[1] -= 100
             made_potion = True
 
         # Blue (id: 3)
         elif 3 in potion_types_map and potion_types[2] >= 100:
-            plan.append({
-                "quantity": 1,
-                "potion_type": potion_types_map[3]
-            })
+            potion_counts[3] += 1
             potion_types[2] -= 100
             made_potion = True
 
         # Dark (id: 4)
         elif 4 in potion_types_map and potion_types[3] >= 100 and gold >= 700:
-            plan.append({
-                "quantity": 1,
-                "potion_type": potion_types_map[4]
-            })
+            potion_counts[4] += 1
             potion_types[3] -= 100
             made_potion = True
 
         if not made_potion:
             break
 
-    return plan
+    return potion_counts
 
 
 if __name__ == "__main__":

@@ -125,41 +125,6 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
 class CartCheckout(BaseModel):
     payment: str
 
-# @router.post("/{cart_id}/checkout")
-# def checkout(cart_id: int, cart_checkout: CartCheckout):
-#     with db.engine.begin() as connection:
-    #     # Select potion_id and quantity from cart_sales table for the given cart_id
-    #     result = connection.execute(sqlalchemy.text("SELECT potion_id, quantity FROM cart_sales WHERE cart_id = :cart_id"), {"cart_id": cart_id})
-        
-    #     total_potions_bought = 0
-    #     total_gold_earned = 0
-
-        
-    #     for potion_id, quantity in result:
-    #         # Select the current quantity from the potion_inventory table for the potion_id
-    #         result = connection.execute(sqlalchemy.text("SELECT COALESCE(quantity, 0) FROM potion_inventory WHERE id = :potion_id"), {"potion_id": potion_id})
-    #         current_quantity = result.scalar()
-
-    #         # Calculate the new quantity by subtracting the purchased quantity from the current quantity
-    #         new_quantity = current_quantity - quantity
-
-    #         # Update the quantity in the potion_inventory table
-    #         connection.execute(sqlalchemy.text("UPDATE potion_inventory SET quantity = :new_quantity WHERE id = :potion_id"),
-    #                            {"new_quantity": new_quantity, "potion_id": potion_id})
-
-    #         total_potions_bought += quantity
-    #         total_gold_earned += quantity * gold
-
-    #     # Get the current total_gold from the global_inventory table
-    #     result = connection.execute(sqlalchemy.text("SELECT total_gold FROM global_inventory"))
-    #     current_total_gold = result.scalar() or 0
-
-    #     # Update the total_gold in the global_inventory table
-    #     new_total_gold = current_total_gold + total_gold_earned
-    #     connection.execute(sqlalchemy.text("UPDATE global_inventory SET total_gold = :new_total_gold"),
-    #                        {"new_total_gold": new_total_gold})
-
-    # return {"total_potions_bought": total_potions_bought, "total_gold": new_total_gold}
 
 
 @router.post("/{cart_id}/checkout")
@@ -182,18 +147,3 @@ def checkout(cart_id: int, cart_checkout: CartCheckout):
         connection.execute(sqlalchemy.text(" UPDATE global_inventory SET gold = gold + :total_gold "), {"total_gold": total_gold})
 
     return {"total_gold": total_gold, "total_potions_bought": total_potions_bought}
-
-
-
-# results =[{"potion_id"}], "qunatity"},]
-# total gold = 0
-# total potions = 0
-# for each loop on results:
-#     Query price
-# Update potion qunatity in global_inventory
-# "update potion_inventory set quantity = quantity - :num bought" {"num_bought:}"}
-# update total gold 
-# total gold+= price
-# update total_potions_boughttotalpotions += set_item_quantityupdate gold in invenotory :"update
-# return total gold 
-# return totoal potions"
