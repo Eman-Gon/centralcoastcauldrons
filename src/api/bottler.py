@@ -48,7 +48,7 @@ def get_bottle_plan():
 
         # Query the potion types and quantities from the potion_inventory table
         potion_inventory_result = connection.execute(sqlalchemy.text("SELECT id, potion_type, quantity FROM potion_inventory"))
-        potion_inventory = {row['id']: {'potion_type': row['potion_type'], 'quantity': row['quantity']} for row in potion_inventory_result}
+        potion_inventory = {row[0]: {'potion_type': row[1], 'quantity': row[2]} for row in potion_inventory_result}
 
     potion_types = [num_red_ml, num_green_ml, num_blue_ml, num_dark_ml]
     potion_counts = {potion_id: 0 for potion_id in potion_inventory.keys()}
@@ -56,22 +56,22 @@ def get_bottle_plan():
     while True:
         made_potion = False
         # Yellow (id: 5)
-        if 5 in potion_inventory and potion_types[2] >= 50 and potion_types[1] >= 50 and sum(potion_counts.values()) < capacity_potion:
+        if 5 in potion_inventory and potion_types[1] >= 50 and potion_types[2] >= 50 and sum(potion_counts.values()) < capacity_potion:
             potion_counts[5] += 1
-            potion_types[2] -= 50
             potion_types[1] -= 50
+            potion_types[2] -= 50
             made_potion = True
 
         # Green (id: 2)
-        elif 2 in potion_inventory and potion_types[0] >= 100 and sum(potion_counts.values()) < capacity_potion:
+        elif 2 in potion_inventory and potion_types[1] >= 100 and sum(potion_counts.values()) < capacity_potion:
             potion_counts[2] += 1
-            potion_types[0] -= 100
+            potion_types[1] -= 100
             made_potion = True
 
         # Red (id: 1)
-        elif 1 in potion_inventory and potion_types[1] >= 100 and sum(potion_counts.values()) < capacity_potion:
+        elif 1 in potion_inventory and potion_types[0] >= 100 and sum(potion_counts.values()) < capacity_potion:
             potion_counts[1] += 1
-            potion_types[1] -= 100
+            potion_types[0] -= 100
             made_potion = True
 
         # Blue (id: 3)
