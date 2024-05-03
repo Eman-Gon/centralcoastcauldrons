@@ -83,6 +83,10 @@ def get_bottle_plan():
         if not made_potion:
             break
 
+    # Update the global_inventory table with the new ml quantities
+    with db.engine.begin() as connection:
+        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_ml = {potion_types[0]}, num_green_ml = {potion_types[1]}, num_blue_ml = {potion_types[2]}, num_dark_ml = {potion_types[3]}, gold = {gold}"))
+
     # Update the potion_inventory table with the new quantities
     with db.engine.begin() as connection:
         for potion_id, quantity in potion_counts.items():
