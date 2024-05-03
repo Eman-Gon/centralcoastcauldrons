@@ -50,39 +50,59 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
 
 # Gets called once a day
 @router.post("/plan")
-def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
-    print(wholesale_catalog)
+def get_bottle_plan():
+    """
+    Go from barrel to bottle.
+    """
     with db.engine.begin() as connection:
-        num_green_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 2")).scalar_one()
-        num_red_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 1")).scalar_one()
-        num_blue_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 3")).scalar_one()
-        num_dark_potion = connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory WHERE id = 4")).scalar_one()
-        gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar_one()
+        # Query the current inventory levels and capacities from the global_inventory table
+        inventory_result = connection.execute(sqlalchemy.text("SELECT num_red_ml, num_green_ml, num_blue_ml, num_dark_ml, gold, capacity_ml, capacity_potion FROM global_inventory")).fetchone()
+        num_red_ml, num_green_ml, num_blue_ml, num_dark_ml, gold, capacity_ml, capacity_potion = inventory_result
 
-        # Sort small barrels by ascending ml_per_barrel
-        sorted_small_barrels = sorted((barrel for barrel in wholesale_catalog if 'SMALL' in barrel.sku), key=lambda barrel: barrel.ml_per_barrel)
+        # Query the potion types and quantities from the potion_inventory table
+        potion_inventory_result = connection.execute(sqlalchemy.text("SELECT id, potion_type, quantity FROM potion_inventory"))
+        potion_inventory = {row[0]: {'potion_type': row[1], 'quantity': row[2]} for row in potion_inventory_result}
 
-        # Query all color potions in order of ml_per_barrel
-        potion_quantities = []
-        for barrel in sorted_small_barrels:
-            if barrel.potion_type == [0, 1, 0, 0]:
-                potion_quantities.append((barrel, num_green_potion))
-            elif barrel.potion_type == [1, 0, 0, 0]:
-                potion_quantities.append((barrel, num_red_potion))
-            elif barrel.potion_type == [0, 0, 1, 0]:
-                potion_quantities.append((barrel, num_blue_potion))
-            elif barrel.potion_type == [0, 0, 0, 1]:
-                potion_quantities.append((barrel, num_dark_potion))
+    potion_types = [num_red_ml, num_green_ml, num_blue_ml, num_dark_ml]
+    potion_counts = {potion_id: 0 for potion_id in potion_inventory.keys()}
 
-        # Sort the barrels in ascending order based on ml_per_barrel
-        potion_quantities.sort(key=lambda x: x[0].ml_per_barrel)
+    while True:
+        made_potion = False
+        # Yellow (id: 5)
+        if 5 in potion_inventory and potion_types[2] >= 50 and potion_types[1] >= 50 and sum(potion_counts.values()) < capacity_potion:
+            potion_counts[5] += 1
+            potion_types[2] -= 50
+            potion_types[1] -= 50
+            made_potion = True
 
-        barrel_plan = []
-        for barrel, potion_qty in potion_quantities:
-            if potion_qty < 10 and gold >= barrel.price:
-                barrel_plan.append({"sku": barrel.sku, "quantity": 1})
-                gold -= barrel.price
-            else:
-                break
+        # Green (id: 2)
+        elif 2 in potion_inventory and potion_types[0] >= 100 and sum(potion_counts.values()) < capacity_potion:
+            potion_counts[2] += 1
+            potion_types[0] -= 100
+            made_potion = True
 
-    return barrel_plan
+        # Red (id: 1)
+        elif 1 in potion_inventory and potion_types[1] >= 100 and sum(potion_counts.values()) < capacity_potion:
+            potion_counts[1] += 1
+            potion_types[1] -= 100
+            made_potion = True
+
+        # Blue (id: 3)
+        elif 3 in potion_inventory and potion_types[2] >= 100 and sum(potion_counts.values()) < capacity_potion:
+            potion_counts[3] += 1
+            potion_types[2] -= 100
+            made_potion = True
+
+        # Dark (id: 4)
+        elif 4 in potion_inventory and potion_types[3] >= 100 and gold >= 700 and sum(potion_counts.values()) < capacity_potion:
+            potion_counts[4] += 1
+            potion_types[3] -= 100
+            made_potion = True
+
+        if not made_potion:
+            break
+
+    return potion_counts
+
+if __name__ == "__main__":
+    print(get_bottle_plan())
