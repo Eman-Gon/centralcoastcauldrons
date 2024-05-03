@@ -42,9 +42,9 @@ def get_bottle_plan():
     Go from barrel to bottle.
     """
     with db.engine.begin() as connection:
-        # Query the current inventory levels and capacities from the global_inventory table
-        inventory_result = connection.execute(sqlalchemy.text("SELECT num_red_ml, num_green_ml, num_blue_ml, num_dark_ml, gold, capacity_ml, capacity_potion FROM global_inventory")).fetchone()
-        num_red_ml, num_green_ml, num_blue_ml, num_dark_ml, gold, capacity_ml, capacity_potion = inventory_result
+        # Query the current inventory levels from the global_inventory table
+        inventory_result = connection.execute(sqlalchemy.text("SELECT num_red_ml, num_green_ml, num_blue_ml, num_dark_ml, gold FROM global_inventory")).fetchone()
+        num_red_ml, num_green_ml, num_blue_ml, num_dark_ml, gold = inventory_result
 
         # Query the potion types and quantities from the potion_inventory table
         potion_inventory_result = connection.execute(sqlalchemy.text("SELECT id, potion_type, quantity FROM potion_inventory"))
@@ -55,42 +55,44 @@ def get_bottle_plan():
 
     while True:
         made_potion = False
-        # Yellow (id: 5)
-        if 5 in potion_inventory and potion_types[1] >= 50 and potion_types[2] >= 50 and sum(potion_counts.values()) < capacity_potion:
-            potion_counts[5] += 1
-            potion_types[1] -= 50
-            potion_types[2] -= 50
-            made_potion = True
-
-        # Green (id: 2)
-        elif 2 in potion_inventory and potion_types[1] >= 100 and sum(potion_counts.values()) < capacity_potion:
-            potion_counts[2] += 1
-            potion_types[1] -= 100
-            made_potion = True
-
-        # Red (id: 1)
-        elif 1 in potion_inventory and potion_types[0] >= 100 and sum(potion_counts.values()) < capacity_potion:
-            potion_counts[1] += 1
-            potion_types[0] -= 100
-            made_potion = True
-
-        # Blue (id: 3)
-        elif 3 in potion_inventory and potion_types[2] >= 100 and sum(potion_counts.values()) < capacity_potion:
-            potion_counts[3] += 1
-            potion_types[2] -= 100
-            made_potion = True
-
-        # Dark (id: 4)
-        elif 4 in potion_inventory and potion_types[3] >= 100 and gold >= 700 and sum(potion_counts.values()) < capacity_potion:
-            potion_counts[4] += 1
-            potion_types[3] -= 100
-            made_potion = True
+        for potion_id, potion_data in potion_inventory.items():
+            potion_type = potion_data['potion_type']
+            if potion_type == [100, 0, 0, 0] and potion_types[0] >= 100:  # Red
+                potion_counts[potion_id] += 1
+                potion_types[0] -= 100
+                made_potion = True
+            elif potion_type == [0, 100, 0, 0] and potion_types[1] >= 100:  # Green
+                potion_counts[potion_id] += 1
+                potion_types[1] -= 100
+                made_potion = True
+            elif potion_type == [0, 0, 100, 0] and potion_types[2] >= 100:  # Blue
+                potion_counts[potion_id] += 1
+                potion_types[2] -= 100
+                made_potion = True
+            elif potion_type == [0, 0, 0, 100] and potion_types[3] >= 100 and gold >= 100:  # Dark
+                potion_counts[potion_id] += 1
+                potion_types[3] -= 100
+                gold -= 100
+                made_potion = True
+            elif potion_type == [50, 50, 0, 0] and potion_types[0] >= 50 and potion_types[1] >= 50:  # Yellow
+                potion_counts[potion_id] += 1
+                potion_types[0] -= 50
+                potion_types[1] -= 50
+                made_potion = True
 
         if not made_potion:
             break
 
-    return potion_counts
+    # Update the potion_inventory table with the new quantities
+    with db.engine.begin() as connection:
+        for potion_id, quantity in potion_counts.items():
+            if quantity > 0:
+                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity = quantity + {quantity} WHERE id = {potion_id}"))
 
+    # Convert potion_counts to a list of dictionaries
+    potion_plan = [{"potion_id": potion_id, "quantity": quantity} for potion_id, quantity in potion_counts.items() if quantity > 0]
+
+    return potion_plan
 
 if __name__ == "__main__":
     print(get_bottle_plan())
