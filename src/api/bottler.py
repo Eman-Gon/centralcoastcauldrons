@@ -42,48 +42,46 @@ def get_bottle_plan():
     Go from barrel to bottle.
     """
     with db.engine.begin() as connection:
-        num_red_ml = connection.execute(sqlalchemy.text(f"SELECT num_red_ml FROM global_inventory")).scalar_one()
-        num_green_ml = connection.execute(sqlalchemy.text(f"SELECT num_green_ml FROM global_inventory")).scalar_one()
-        num_blue_ml = connection.execute(sqlalchemy.text(f"SELECT num_blue_ml FROM global_inventory")).scalar_one()
-        num_dark_ml = connection.execute(sqlalchemy.text(f"SELECT num_dark_ml FROM global_inventory")).scalar_one()
-        gold = connection.execute(sqlalchemy.text(f"SELECT gold FROM global_inventory")).scalar_one()
+        # Query the current inventory levels and capacities from the global_inventory table
+        inventory_result = connection.execute(sqlalchemy.text("SELECT num_red_ml, num_green_ml, num_blue_ml, num_dark_ml, gold, capacity_ml, capacity_potion FROM global_inventory")).fetchone()
+        num_red_ml, num_green_ml, num_blue_ml, num_dark_ml, gold, capacity_ml, capacity_potion = inventory_result
 
-        # Query the potion_type from the potion_inventory table
-        potion_types_result = connection.execute(sqlalchemy.text(f"SELECT id, potion_type FROM potion_inventory"))
-        potion_types_map = {potion_id: potion_type for potion_id, potion_type in potion_types_result}
+        # Query the potion types and quantities from the potion_inventory table
+        potion_inventory_result = connection.execute(sqlalchemy.text("SELECT id, potion_type, quantity FROM potion_inventory"))
+        potion_inventory = {row['id']: {'potion_type': row['potion_type'], 'quantity': row['quantity']} for row in potion_inventory_result}
 
     potion_types = [num_red_ml, num_green_ml, num_blue_ml, num_dark_ml]
-    potion_counts = {potion_id: 0 for potion_id in potion_types_map.keys()}
+    potion_counts = {potion_id: 0 for potion_id in potion_inventory.keys()}
 
     while True:
         made_potion = False
         # Yellow (id: 5)
-        if 5 in potion_types_map and potion_types[2] >= 50 and potion_types[1] >= 50:
+        if 5 in potion_inventory and potion_types[2] >= 50 and potion_types[1] >= 50 and sum(potion_counts.values()) < capacity_potion:
             potion_counts[5] += 1
             potion_types[2] -= 50
             potion_types[1] -= 50
             made_potion = True
 
         # Green (id: 2)
-        elif 2 in potion_types_map and potion_types[0] >= 100:
+        elif 2 in potion_inventory and potion_types[0] >= 100 and sum(potion_counts.values()) < capacity_potion:
             potion_counts[2] += 1
             potion_types[0] -= 100
             made_potion = True
 
         # Red (id: 1)
-        elif 1 in potion_types_map and potion_types[1] >= 100:
+        elif 1 in potion_inventory and potion_types[1] >= 100 and sum(potion_counts.values()) < capacity_potion:
             potion_counts[1] += 1
             potion_types[1] -= 100
             made_potion = True
 
         # Blue (id: 3)
-        elif 3 in potion_types_map and potion_types[2] >= 100:
+        elif 3 in potion_inventory and potion_types[2] >= 100 and sum(potion_counts.values()) < capacity_potion:
             potion_counts[3] += 1
             potion_types[2] -= 100
             made_potion = True
 
         # Dark (id: 4)
-        elif 4 in potion_types_map and potion_types[3] >= 100 and gold >= 700:
+        elif 4 in potion_inventory and potion_types[3] >= 100 and gold >= 700 and sum(potion_counts.values()) < capacity_potion:
             potion_counts[4] += 1
             potion_types[3] -= 100
             made_potion = True
