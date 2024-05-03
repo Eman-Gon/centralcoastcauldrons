@@ -31,43 +31,72 @@ def search_orders(
     sort_col: search_sort_options = search_sort_options.timestamp,
     sort_order: search_sort_order = search_sort_order.desc,
 ):
-    """
-    Search for cart line items by customer name and/or potion sku.
+    # ...
 
-    Customer name and potion sku filter to orders that contain the 
-    string (case insensitive). If the filters aren't provided, no
-    filtering occurs on the respective search term.
+    with db.engine.connect() as conn:
+        # Build the base query
+        query = sqlalchemy.select(
+            db.cart_sales.c.id.label("line_item_id"),
+            db.potion_inventory.c.sku.label("item_sku"),
+            db.carts.c.customer.label("customer_name"),
+            (db.cart_sales.c.quantity * db.potion_inventory.c.price).label("line_item_total"),
+            db.cart_sales.c.created_at.label("timestamp"),
+        ).select_from(
+            db.cart_sales.join(db.potion_inventory, db.cart_sales.c.potion_id == db.potion_inventory.c.id)
+            .join(db.carts, db.cart_sales.c.cart_id == db.carts.c.id)
+        )
 
-    Search page is a cursor for pagination. The response to this
-    search endpoint will return previous or next if there is a
-    previous or next page of results available. The token passed
-    in that search response can be passed in the next search request
-    as search page to get that page of results.
+        # Apply filters
+        if customer_name:
+            query = query.where(db.carts.c.customer.ilike(f"%{customer_name}%"))
+        if potion_sku:
+            query = query.where(db.potion_inventory.c.sku.ilike(f"%{potion_sku}%"))
 
-    Sort col is which column to sort by and sort order is the direction
-    of the search. They default to searching by timestamp of the order
-    in descending order.
+        # Apply sorting
+        if sort_col == search_sort_options.customer_name:
+            order_by_column = db.carts.c.customer
+        elif sort_col == search_sort_options.item_sku:
+            order_by_column = db.potion_inventory.c.sku
+        elif sort_col == search_sort_options.line_item_total:
+            order_by_column = (db.cart_sales.c.quantity * db.potion_inventory.c.price)
+        else:  # Default to timestamp
+            order_by_column = db.cart_sales.c.created_at
 
-    The response itself contains a previous and next page token (if
-    such pages exist) and the results as an array of line items. Each
-    line item contains the line item id (must be unique), item sku, 
-    customer name, line item total (in gold), and timestamp of the order.
-    Your results must be paginated, the max results you can return at any
-    time is 5 total line items.
-    """
+        if sort_order == search_sort_order.asc:
+            query = query.order_by(order_by_column)
+        else:  # Default to descending order
+            query = query.order_by(order_by_column.desc())
+
+        # Pagination
+        if search_page:
+            offset = int(search_page) * 5
+        else:
+            offset = 0
+
+        query = query.limit(5).offset(offset)
+
+        # Execute the query
+        result = conn.execute(query)
+
+        # Process the results
+        results = []
+        for row in result:
+            results.append({
+                "line_item_id": row.line_item_id,
+                "item_sku": row.item_sku,
+                "customer_name": row.customer_name,
+                "line_item_total": row.line_item_total,
+                "timestamp": row.timestamp.isoformat(),
+            })
+
+        # Determine previous and next page tokens
+        previous_page = offset // 5 - 1 if offset > 0 else None
+        next_page = offset // 5 + 1 if len(results) == 5 else None
 
     return {
-        "previous": "",
-        "next": "",
-        "results": [
-            {
-                "line_item_id": 1,
-                "item_sku": "1 oblivion potion",
-                "customer_name": "Scaramouche",
-                "line_item_total": 50,
-                "timestamp": "2021-01-01T00:00:00Z",
-            }
-        ],
+        "previous": str(previous_page) if previous_page is not None else "",
+        "next": str(next_page) if next_page is not None else "",
+        "results": results,
     }
 
 
