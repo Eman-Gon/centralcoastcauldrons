@@ -260,33 +260,40 @@ def get_bottle_plan():
 
         while True:
             made_potion = False
-            min_count = min((count for potion_id, count in potion_counts.items() if potion_id != 4), default=0)
-            potion_to_make = next((potion_id for potion_id, count in potion_counts.items() if count == min_count and potion_id != 4), None)
 
-            if potion_to_make is not None:
-                if potion_to_make == 5 and potion_types[2] >= 50 and potion_types[1] >= 50:
-                    potion_counts[5] += 1
-                    potion_types[2] -= 50
-                    potion_types[1] -= 50
-                    made_potion = True
-                elif potion_to_make == 2 and potion_types[0] >= 100:
-                    potion_counts[2] += 1
-                    potion_types[0] -= 100
-                    made_potion = True
-                elif potion_to_make == 1 and potion_types[1] >= 100:
-                    potion_counts[1] += 1
-                    potion_types[1] -= 100
-                    made_potion = True
-                elif potion_to_make == 3 and potion_types[2] >= 100:
-                    potion_counts[3] += 1
-                    potion_types[2] -= 100
-                    made_potion = True
+            # Check if all potion types (excluding Dark) have a quantity greater than 5
+            all_potions_over_5 = all(count > 5 for potion_id, count in potion_counts.items() if potion_id != 4)
 
-            if 4 in potion_types_map and potion_types[3] >= 100 and gold >= 700:
+            # Check if we can make a Dark potion (ID: 4)
+            if 4 in potion_types_map and num_dark_ml >= 100 and gold >= 700 and all_potions_over_5:
                 potion_counts[4] += 1
-                potion_types[3] -= 100
+                num_dark_ml -= 100
                 gold -= 700
                 made_potion = True
+
+            # If a Dark potion was not made, create other potions based on minimum count
+            if not made_potion:
+                min_count = min((count for potion_id, count in potion_counts.items() if potion_id != 4), default=0)
+                potion_to_make = next((potion_id for potion_id, count in potion_counts.items() if count == min_count and potion_id != 4), None)
+
+                if potion_to_make is not None:
+                    if potion_to_make == 5 and num_blue_ml >= 50 and num_green_ml >= 50:
+                        potion_counts[5] += 1
+                        num_blue_ml -= 50
+                        num_green_ml -= 50
+                        made_potion = True
+                    elif potion_to_make == 2 and num_red_ml >= 100:
+                        potion_counts[2] += 1
+                        num_red_ml -= 100
+                        made_potion = True
+                    elif potion_to_make == 1 and num_green_ml >= 100:
+                        potion_counts[1] += 1
+                        num_green_ml -= 100
+                        made_potion = True
+                    elif potion_to_make == 3 and num_blue_ml >= 100:
+                        potion_counts[3] += 1
+                        num_blue_ml -= 100
+                        made_potion = True
 
             if not made_potion:
                 break
