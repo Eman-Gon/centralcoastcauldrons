@@ -5,7 +5,6 @@ from enum import Enum
 from pydantic import BaseModel
 from src.api import auth
 
-
 router = APIRouter(
     prefix="/bottler",
     tags=["bottler"],
@@ -38,9 +37,12 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
 
 
 
+
 @router.post("/plan")
 def get_bottle_plan():
-    """Go from barrel to bottle."""
+    """
+    Go from barrel to bottle.
+    """
     with db.engine.begin() as connection:
         num_red_ml = connection.execute(sqlalchemy.text(f"SELECT num_red_ml FROM global_inventory")).scalar_one()
         num_green_ml = connection.execute(sqlalchemy.text(f"SELECT num_green_ml FROM global_inventory")).scalar_one()
@@ -52,54 +54,126 @@ def get_bottle_plan():
         potion_types_result = connection.execute(sqlalchemy.text(f"SELECT id, potion_type FROM potion_inventory"))
         potion_types_map = {potion_id: potion_type for potion_id, potion_type in potion_types_result}
 
-        potion_counts = {potion_id: 0 for potion_id in potion_types_map}
+    potion_types = [num_green_ml, num_red_ml, num_blue_ml, num_dark_ml]
+    plan = []
 
-        total_gold_used = 0
+    while True:
+        made_potion = False
+        # Yellow (id: 5)
+        if 5 in potion_types_map and potion_types[2] >= 50 and potion_types[1] >= 50:
+            plan.append({
+                "quantity": 1,
+                "potion_type": potion_types_map[5]
+            })
+            potion_types[2] -= 50
+            potion_types[1] -= 50
+            made_potion = True
 
-        while True:
-            made_potion = False
+        # Green (id: 2)
+        elif 2 in potion_types_map and potion_types[0] >= 100:
+            plan.append({
+                "quantity": 1,
+                "potion_type": potion_types_map[2]
+            })
+            potion_types[0] -= 100
+            made_potion = True
 
-            # Check if all potion types (excluding Dark) have a quantity greater than 5
-            all_potions_over_5 = all(count > 5 for potion_id, count in potion_counts.items() if potion_id != 4)
+        # Red (id: 1)
+        elif 1 in potion_types_map and potion_types[1] >= 100:
+            plan.append({
+                "quantity": 1,
+                "potion_type": potion_types_map[1]
+            })
+            potion_types[1] -= 100
+            made_potion = True
 
-            # Check if we can make a Dark potion
-            if 4 in potion_counts and num_dark_ml >= 100 and gold >= 700 and all_potions_over_5:
-                potion_counts[4] += 1
-                num_dark_ml -= 100
-                total_gold_used += 700
-                made_potion = True
+        # Blue (id: 3)
+        elif 3 in potion_types_map and potion_types[2] >= 100:
+            plan.append({
+                "quantity": 1,
+                "potion_type": potion_types_map[3]
+            })
+            potion_types[2] -= 100
+            made_potion = True
 
-            # If a Dark potion was not made, create other potions based on minimum count
-            if not made_potion:
-                min_count = min((count for potion_id, count in potion_counts.items() if potion_id != 4), default=0)
-                potion_to_make = next((potion_id for potion_id, count in potion_counts.items() if count == min_count and potion_id != 4), None)
+        # Dark (id: 4)
+        elif 4 in potion_types_map and potion_types[3] >= 100 and gold >= 700:
+            plan.append({
+                "quantity": 1,
+                "potion_type": potion_types_map[4]
+            })
+            potion_types[3] -= 100
+            made_potion = True
 
-                if potion_to_make is not None:
-                    if potion_to_make == 5 and num_blue_ml >= 50 and num_green_ml >= 50:
-                        potion_counts[5] += 1
-                        num_blue_ml -= 50
-                        num_green_ml -= 50
-                        made_potion = True
-                    elif potion_to_make == 2 and num_green_ml >= 100:
-                        potion_counts[2] += 1
-                        num_green_ml -= 100
-                        made_potion = True
-                    elif potion_to_make == 1 and num_red_ml >= 100:
-                        potion_counts[1] += 1
-                        num_red_ml -= 100
-                        made_potion = True
-                    elif potion_to_make == 3 and num_blue_ml >= 100:
-                        potion_counts[3] += 1
-                        num_blue_ml -= 100
-                        made_potion = True
+        if not made_potion:
+            break
 
-            if not made_potion:
-                break
+    return plan
 
-        # Update the gold in the database after the loop
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold - {total_gold_used}"))
-
-        return potion_counts
 
 if __name__ == "__main__":
     print(get_bottle_plan())
+
+
+
+
+#     @router.post("/plan")
+# def get_bottle_plan():
+#     """
+#     Go from barrel to bottle.
+#     """
+#     with db.engine.begin() as connection:
+#         num_red_ml = connection.execute(sqlalchemy.text(f"SELECT num_red_ml FROM global_inventory")).scalar_one()
+#         num_green_ml = connection.execute(sqlalchemy.text(f"SELECT num_green_ml FROM global_inventory")).scalar_one()
+#         num_blue_ml = connection.execute(sqlalchemy.text(f"SELECT num_blue_ml FROM global_inventory")).scalar_one()
+#         num_dark_ml = connection.execute(sqlalchemy.text(f"SELECT num_dark_ml FROM global_inventory")).scalar_one()
+#         gold = connection.execute(sqlalchemy.text(f"SELECT gold FROM global_inventory")).scalar_one()
+
+#         # Query the potion_type from the potion_inventory table
+#         potion_types_result = connection.execute(sqlalchemy.text(f"SELECT id, potion_type FROM potion_inventory"))
+#         potion_types_map = {potion_id: potion_type for potion_id, potion_type in potion_types_result}
+
+#     potion_types = [num_red_ml, num_green_ml, num_blue_ml, num_dark_ml]
+#     potion_counts = {potion_id: 0 for potion_id in potion_types_map.keys()}
+
+#     while True:
+#         made_potion = False
+#         # Yellow (id: 5)
+#         if 5 in potion_types_map and potion_types[1] >= 50 and potion_types[0] >= 50:
+#             potion_counts[5] += 1
+#             potion_types[2] -= 50
+#             potion_types[1] -= 50
+#             made_potion = True
+
+#         # Green (id: 2)
+#         elif 2 in potion_types_map and potion_types[0] >= 100:
+#             potion_counts[2] += 1
+#             potion_types[0] -= 100
+#             made_potion = True
+
+#         # Red (id: 1)
+#         elif 1 in potion_types_map and potion_types[1] >= 100:
+#             potion_counts[1] += 1
+#             potion_types[1] -= 100
+#             made_potion = True
+
+#         # Blue (id: 3)
+#         elif 3 in potion_types_map and potion_types[2] >= 100:
+#             potion_counts[3] += 1
+#             potion_types[2] -= 100
+#             made_potion = True
+
+#         # Dark (id: 4)
+#         elif 4 in potion_types_map and potion_types[3] >= 100 and gold >= 700:
+#             potion_counts[4] += 1
+#             potion_types[3] -= 100
+#             made_potion = True
+
+#         if not made_potion:
+#             break
+
+#     return potion_counts
+
+
+# if __name__ == "__main__":
+    print(get_bottle_plan()) 
