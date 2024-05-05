@@ -19,39 +19,42 @@ class PotionInventory(BaseModel):
 def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
     print(f"potions delivered: {potions_delivered} order_id: {order_id}")
     with db.engine.begin() as connection:
+        # Add a new transaction
+        result = connection.execute(sqlalchemy.text("INSERT INTO transactions (description) VALUES (:description) RETURNING id"), {"description": f"Delivery of bottled potions (order {order_id})"})
+        transaction_id = result.scalar_one()
+
         for potion in potions_delivered:
             if potion.potion_type == [0, 100, 0, 0]:
-                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_green_ml = num_green_ml - {100 * potion.quantity}"))
-                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity =  {potion.quantity} + quantity where id = 2" ))
+                connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'green', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+                connection.execute(sqlalchemy.text("INSERT INTO potion_ledger_entries (transaction_id, potion_id, change_in_gold) VALUES (:transaction_id, :potion_id, :change_in_gold)"), {"transaction_id": transaction_id, "potion_id": 2, "change_in_gold": potion.quantity})
             elif potion.potion_type == [100, 0, 0, 0]:
-                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_red_ml = num_red_ml - {100 * potion.quantity}"))
-                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity =  {potion.quantity} + quantity where id = 1" ))
+                connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'red', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+                connection.execute(sqlalchemy.text("INSERT INTO potion_ledger_entries (transaction_id, potion_id, change_in_gold) VALUES (:transaction_id, :potion_id, :change_in_gold)"), {"transaction_id": transaction_id, "potion_id": 1, "change_in_gold": potion.quantity})
             elif potion.potion_type == [0, 0, 100, 0]:
-                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_blue_ml = num_blue_ml - {100 * potion.quantity}"))
-                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity =  {potion.quantity} + quantity where id = 3" ))
+                connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'blue', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+                connection.execute(sqlalchemy.text("INSERT INTO potion_ledger_entries (transaction_id, potion_id, change_in_gold) VALUES (:transaction_id, :potion_id, :change_in_gold)"), {"transaction_id": transaction_id, "potion_id": 3, "change_in_gold": potion.quantity})
             elif potion.potion_type == [0, 0, 0, 100]:
-                connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET num_dark_ml = num_dark_ml - {100 * potion.quantity}"))
-                connection.execute(sqlalchemy.text(f"UPDATE potion_inventory SET quantity = {potion.quantity} + quantity where id = 4" ))
+                connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'dark', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+                connection.execute(sqlalchemy.text("INSERT INTO potion_ledger_entries (transaction_id, potion_id, change_in_gold) VALUES (:transaction_id, :potion_id, :change_in_gold)"), {"transaction_id": transaction_id, "potion_id": 4, "change_in_gold": potion.quantity})
+
     return "OK"
 
-
-
-
-
+@router.post("/plan")
 @router.post("/plan")
 def get_bottle_plan():
     """
     Go from barrel to bottle.
     """
     with db.engine.begin() as connection:
-        num_red_ml = connection.execute(sqlalchemy.text(f"SELECT num_red_ml FROM global_inventory")).scalar_one()
-        num_green_ml = connection.execute(sqlalchemy.text(f"SELECT num_green_ml FROM global_inventory")).scalar_one()
-        num_blue_ml = connection.execute(sqlalchemy.text(f"SELECT num_blue_ml FROM global_inventory")).scalar_one()
-        num_dark_ml = connection.execute(sqlalchemy.text(f"SELECT num_dark_ml FROM global_inventory")).scalar_one()
-        gold = connection.execute(sqlalchemy.text(f"SELECT gold FROM global_inventory")).scalar_one()
+        # Calculate the current ml levels from the ledger tables
+        num_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'green'")).scalar_one() or 0
+        num_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'red'")).scalar_one() or 0
+        num_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'blue'")).scalar_one() or 0
+        num_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'dark'")).scalar_one() or 0
+        gold = connection.execute(sqlalchemy.text("SELECT SUM(change_in_gold) FROM gold_ledger_entries")).scalar_one() or 0
 
         # Query the potion_type from the potion_inventory table
-        potion_types_result = connection.execute(sqlalchemy.text(f"SELECT id, potion_type FROM potion_inventory"))
+        potion_types_result = connection.execute(sqlalchemy.text("SELECT id, potion_type FROM potion_inventory")).fetchall()
         potion_types_map = {potion_id: potion_type for potion_id, potion_type in potion_types_result}
 
     potion_types = [num_green_ml, num_red_ml, num_blue_ml, num_dark_ml]
@@ -109,8 +112,6 @@ def get_bottle_plan():
             break
 
     return plan
-
-
 if __name__ == "__main__":
     print(get_bottle_plan())
 

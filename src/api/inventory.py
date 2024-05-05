@@ -17,12 +17,15 @@ def get_inventory():
         # Retrieve potion quantities from the potion_inventory table
         total_number_of_potions = sum(connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory")).scalars())
 
-        #result = connection.execute(sqlalchemy.text("SELECT num_green_ml, num_red_ml, num_blue_ml, num_dark_ml FROM global_inventory")).one()
-        num_green_ml, num_red_ml, num_blue_ml, num_dark_ml = connection.execute(sqlalchemy.text("SELECT num_green_ml, num_red_ml, num_blue_ml, num_dark_ml FROM global_inventory")).one()
+        # Calculate the current inventory levels from the ledger tables
+        gold = connection.execute(sqlalchemy.text("SELECT SUM(change_in_gold) FROM gold_ledger_entries")).scalar_one()
+        num_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'green'")).scalar_one()
+        num_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'red'")).scalar_one()
+        num_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'blue'")).scalar_one()
+        num_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'dark'")).scalar_one()
         total_ml_in_barrels = num_green_ml + num_red_ml + num_blue_ml + num_dark_ml
-        gold = connection.execute(sqlalchemy.text("SELECT gold FROM global_inventory")).scalar_one()
-    
-    return {
+
+        return {
             "number_of_potions": total_number_of_potions,
             "ml_in_barrels": total_ml_in_barrels,
             "gold": gold
@@ -32,20 +35,17 @@ def get_inventory():
 # Gets called once a day
 @router.post("/plan")
 def get_capacity_plan():
-    """
-    Start with 1 capacity for 50 potions and 1 capacity for 10000 ml of potion.
-    Each additional capacity unit costs 1000 gold.
-    """
+    """ Start with 1 capacity for 50 potions and 1 capacity for 10000 ml of potion. Each additional capacity unit costs 1000 gold. """
     with db.engine.begin() as connection:
-        # Get the current gold from the global_inventory table
-        gold = connection.execute(sqlalchemy.text(f"SELECT gold FROM global_inventory")).scalar_one()
+        # Calculate the current gold from the ledger tables
+        gold = connection.execute(sqlalchemy.text("SELECT SUM(change_in_gold) FROM gold_ledger_entries")).scalar_one()
 
-    # Calculate the total capacity units that can be purchased
-    total_capacity_units = gold // 1000
+        # Calculate the total capacity units that can be purchased
+        total_capacity_units = gold // 1000
 
-    # Calculate the potion capacity and ml capacity
-    potion_capacity = min(total_capacity_units, 1) * 50
-    ml_capacity = min(total_capacity_units, 1) * 10000
+        # Calculate the potion capacity and ml capacity
+        potion_capacity = min(total_capacity_units, 1) * 50
+        ml_capacity = min(total_capacity_units, 1) * 10000
 
     return {
         "potion_capacity": potion_capacity,
@@ -59,12 +59,10 @@ class CapacityPurchase(BaseModel):
 # Gets called once a day
 @router.post("/deliver/{order_id}")
 def deliver_capacity_plan(capacity_purchase: CapacityPurchase, order_id: int):
-    """
-    Start with 1 capacity for 50 potions and 1 capacity for 10000 ml of potion.
-    Each additional capacity unit costs 1000 gold.
-    """
+    """ Start with 1 capacity for 50 potions and 1 capacity for 10000 ml of potion. Each additional capacity unit costs 1000 gold. """
     with db.engine.begin() as connection:
-        gold = connection.execute(sqlalchemy.text(f"SELECT gold FROM global_inventory")).scalar_one()
+        # Calculate the current gold from the ledger tables
+        gold = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM gold_ledger_entries")).scalar_one()
 
         # Calculate the total cost of the capacity purchase
         total_cost = (capacity_purchase.potion_capacity // 50) * 1000 + (capacity_purchase.ml_capacity // 10000) * 1000
@@ -72,10 +70,13 @@ def deliver_capacity_plan(capacity_purchase: CapacityPurchase, order_id: int):
         if total_cost > gold:
             return "Insufficient gold to purchase the capacity plan."
 
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET gold = gold - {total_cost}"))
+        # Add a new transaction
+        result = connection.execute(sqlalchemy.text("INSERT INTO transactions (description) VALUES (:description) RETURNING id"), {"description": f"Delivery of capacity plan (order {order_id})"})
+        transaction_id = result.scalar_one()
 
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET capacity_potion = capacity_potion + {capacity_purchase.potion_capacity}"))
+        # Record changes in the ledger tables
+        connection.execute(sqlalchemy.text("INSERT INTO gold_ledger_entries (transaction_id, change_in_gold) VALUES (:transaction_id, :change_in_gold)"), {"transaction_id": transaction_id, "change_in_gold": -total_cost})
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET capacity_potion = capacity_potion + :capacity_potion"), {"capacity_potion": capacity_purchase.potion_capacity})
+        connection.execute(sqlalchemy.text("UPDATE global_inventory SET capacity_ml = capacity_ml + :capacity_ml"), {"capacity_ml": capacity_purchase.ml_capacity})
 
-        connection.execute(sqlalchemy.text(f"UPDATE global_inventory SET capacity_ml = capacity_ml + {capacity_purchase.ml_capacity}"))
-
-    return "OK"
+        return "OK"

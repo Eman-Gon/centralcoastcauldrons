@@ -159,20 +159,23 @@ class CartCheckout(BaseModel):
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
     with db.engine.begin() as connection:
+        # Add a new transaction
+        result = connection.execute(sqlalchemy.text("INSERT INTO transactions (description) VALUES (:description) RETURNING id"), {"description": f"Checkout for cart {cart_id}"})
+        transaction_id = result.scalar_one()
+
         potions_in_cart = connection.execute(sqlalchemy.text("SELECT potion_id, quantity FROM cart_sales WHERE cart_id = :cart_id "), {"cart_id": cart_id})
 
         total_gold = 0
         total_potions_bought = 0
 
         for potion_id, quantity in potions_in_cart:
-
             price = connection.execute(sqlalchemy.text("SELECT price FROM potion_inventory WHERE id = :potion_id"), {"potion_id": potion_id}).scalar_one()
 
-            connection.execute(sqlalchemy.text("UPDATE potion_inventory SET quantity = quantity - :num_bought WHERE id = :potion_id"), {"num_bought": quantity, "potion_id": potion_id})
+            # Record changes in the ledger tables
+            connection.execute(sqlalchemy.text("INSERT INTO potion_ledger_entries (transaction_id, potion_id, change_in_potion) VALUES (:transaction_id, :potion_id, :change_in_potion)"), {"transaction_id": transaction_id, "potion_id": potion_id, "change_in_potion": -quantity})
+            connection.execute(sqlalchemy.text("INSERT INTO gold_ledger_entries (transaction_id, change_in_gold) VALUES (:transaction_id, :change_in_gold)"), {"transaction_id": transaction_id, "change_in_gold": price * quantity})
+
             total_gold += price * quantity
             total_potions_bought += quantity
-       
-
-        connection.execute(sqlalchemy.text(" UPDATE global_inventory SET gold = gold + :total_gold "), {"total_gold": total_gold})
 
     return {"total_gold": total_gold, "total_potions_bought": total_potions_bought}
