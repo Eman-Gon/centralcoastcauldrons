@@ -31,7 +31,6 @@ def search_orders(
     sort_col: search_sort_options = search_sort_options.timestamp,
     sort_order: search_sort_order = search_sort_order.desc,
 ):
-    # ...
 
     with db.engine.connect() as conn:
         # Build the base query

@@ -62,49 +62,49 @@ def get_bottle_plan():
     while True:
         made_potion = False
         # Yellow (id: 5)
-        if 5 in potion_types_map and potion_types[2] >= 50 and potion_types[1] >= 50:
+        if 5 in potion_types_map and potion_types[2] >= 250 and potion_types[1] >= 250:
             plan.append({
-                "quantity": 1,
+                "quantity": 5,
                 "potion_type": potion_types_map[5]
             })
-            potion_types[2] -= 50
-            potion_types[1] -= 50
+            potion_types[2] -= 250
+            potion_types[1] -= 250
             made_potion = True
 
         # Green (id: 2)
-        elif 2 in potion_types_map and potion_types[0] >= 100:
+        elif 2 in potion_types_map and potion_types[0] >= 500:
             plan.append({
-                "quantity": 1,
+                "quantity": 5,
                 "potion_type": potion_types_map[2]
             })
-            potion_types[0] -= 100
+            potion_types[0] -= 500
             made_potion = True
 
         # Red (id: 1)
-        elif 1 in potion_types_map and potion_types[1] >= 100:
+        elif 1 in potion_types_map and potion_types[1] >= 500:
             plan.append({
-                "quantity": 1,
+                "quantity": 5,
                 "potion_type": potion_types_map[1]
             })
-            potion_types[1] -= 100
+            potion_types[1] -= 500
             made_potion = True
 
         # Blue (id: 3)
-        elif 3 in potion_types_map and potion_types[2] >= 100:
+        elif 3 in potion_types_map and potion_types[2] >= 500:
             plan.append({
-                "quantity": 1,
+                "quantity": 5,
                 "potion_type": potion_types_map[3]
             })
-            potion_types[2] -= 100
+            potion_types[2] -= 500
             made_potion = True
 
         # Dark (id: 4)
-        elif 4 in potion_types_map and potion_types[3] >= 100 and gold >= 700:
+        elif 4 in potion_types_map and potion_types[3] >= 500 and gold >= 3500:
             plan.append({
-                "quantity": 1,
+                "quantity": 5,
                 "potion_type": potion_types_map[4]
             })
-            potion_types[3] -= 100
+            potion_types[3] -= 500
             made_potion = True
 
         if not made_potion:
