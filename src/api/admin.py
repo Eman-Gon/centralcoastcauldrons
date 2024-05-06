@@ -1,7 +1,6 @@
 import sqlalchemy
 from src import database as db
-from fastapi import APIRouter, Depends, Request
-from pydantic import BaseModel
+from fastapi import APIRouter, Depends
 from src.api import auth
 
 router = APIRouter(
@@ -13,14 +12,23 @@ router = APIRouter(
 @router.post("/reset")
 def reset():
     with db.engine.begin() as connection:
-    
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET gold = 100"))
+        # Reset potion_inventory table
         connection.execute(sqlalchemy.text("UPDATE potion_inventory SET quantity = 0"))
-        connection.execute(sqlalchemy.text("UPDATE global_inventory SET num_green_ml = 0, num_red_ml = 0, num_blue_ml = 0, num_dark_ml = 0"))
+        
+        # Reset ml_ledger_entries table
+        connection.execute(sqlalchemy.text("TRUNCATE ml_ledger_entries"))
+        
+        # Reset gold_ledger_entries table
+        connection.execute(sqlalchemy.text("TRUNCATE gold_ledger_entries"))
+        connection.execute(sqlalchemy.text("INSERT INTO gold_ledger_entries (change_in_gold) VALUES (100)"))
+        
+        # Reset carts table
         connection.execute(sqlalchemy.text("TRUNCATE carts CASCADE"))
-        connection.exzcute(sqlalchemy.text("TRUNCATE cart_sales CASCADE"))
+        
+        # Reset cart_sales table
+        connection.execute(sqlalchemy.text("TRUNCATE cart_sales CASCADE"))
+        
+        # Reset transactions table
+        connection.execute(sqlalchemy.text("TRUNCATE transactions CASCADE"))
+        
     return "OK"
-
-#okay i want to rest my whole thing
-
-

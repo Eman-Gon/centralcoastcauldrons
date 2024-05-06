@@ -4,10 +4,6 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel
 from src.api import auth
 
-from sqlalchemy.exc import IntegrityError
-
-
-
 router = APIRouter(
     prefix="/barrels",
     tags=["barrels"],
@@ -17,9 +13,10 @@ router = APIRouter(
 class Barrel(BaseModel):
     sku: str
     ml_per_barrel: int
-    potion_type: list [int]
+    potion_type: list[int]
     price: int
     quantity: int
+
 @router.post("/deliver/{order_id}")
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
     total_green_ml = 0
@@ -60,11 +57,11 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     print(wholesale_catalog)
     with db.engine.begin() as connection:
         # Calculate the current inventory levels from the ledger tables
-        gold = connection.execute(sqlalchemy.text("SELECT SUM(change_in_gold) FROM gold_ledger_entries")).scalar_one()
-        num_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'green'")).scalar_one()
-        num_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'red'")).scalar_one()
-        num_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'blue'")).scalar_one()
-        num_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'dark'")).scalar_one()
+        gold = connection.execute(sqlalchemy.text("SELECT SUM(change_in_gold) FROM gold_ledger_entries")).scalar_one() or 0
+        num_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'green'")).scalar_one() or 0
+        num_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'red'")).scalar_one() or 0
+        num_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'blue'")).scalar_one() or 0
+        num_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'dark'")).scalar_one() or 0
 
         # Retrieve potion quantities from the potion_inventory table
         potion_quantities = connection.execute(sqlalchemy.text("SELECT id, quantity FROM potion_inventory")).fetchall()
@@ -97,48 +94,3 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                 break
 
     return barrel_plan
-    
-
-# find small barrels first list or dictanry 
-
-
-# find all small barrels first ->small barrels
-# for 'color' in sorted 
-# if barrel of potion_type
-# exist in small post_deliver_barrels:
-# if (buyable):
-#     buy gold -= Priceelse break
-
-
-
-#         return barrel_plan
-    
-        # query all color in order mL 
-    # sort the barrels by ascending order
-
-    # for each color:
-    #     try to buy a small barrel with your gold
-    #     update gold in hand accordingly
-    #     if you don't have enough gold, break out of loop
-    
-    # return plan
-
-#     qury them all then sort it see if you can buy that barrel first small barrel
-
-
-
-
-
-# check if there if not continue and try to buy it
-
-# find small barrels first list or dictanry 
-
-
-# find all small barrels first ->small barrels
-# for 'color' in sorted 
-# if barrel of potion_type
-# exist in small post_deliver_barrels:
-# if (buyable):
-#     buy gold -= Priceelse break
-
-
