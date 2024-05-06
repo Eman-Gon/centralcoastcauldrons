@@ -20,6 +20,8 @@ def reset():
         
         # Reset gold_ledger_entries table
         connection.execute(sqlalchemy.text("TRUNCATE gold_ledger_entries"))
+        
+        # Insert initial gold entry
         connection.execute(sqlalchemy.text("INSERT INTO gold_ledger_entries (change_in_gold) VALUES (100)"))
         
         # Reset carts table
