@@ -41,61 +41,48 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
 
 @router.post("/plan")
 def get_bottle_plan():
-    """
-    Go from barrel to bottle.
-    """
+    """Go from barrel to bottle."""
     with db.engine.begin() as connection:
         # Find amount of space left in potion_capacity
-        potion_capacity = connection.execute(sqlalchemy.text("SELECT SUM(quantity) FROM potion_inventory_view")).scalar_one()
-        potion_capacity = potion_capacity if potion_capacity is not None else 0
+        potion_capacity = connection.execute(sqlalchemy.text("SELECT COALESCE(SUM(quantity), 0) FROM potion_inventory_view")).scalar()
 
         # Query ml_inventory_view
         ml_inventory = connection.execute(sqlalchemy.text("SELECT * FROM ml_ledger_entries_view")).fetchall()
         ml_inventory_dict = {row.color: row.total_ml for row in ml_inventory}
 
+        # Query total gold
+        total_gold = connection.execute(sqlalchemy.text("SELECT COALESCE(SUM(change_in_gold), 0) FROM gold_ledger_entries")).scalar()
+
         # Query all info about potions (make sure it's a list)
         potions = connection.execute(sqlalchemy.text("SELECT * FROM potion_inventory")).fetchall()
 
+        # Sort potions based on potion_type
+        potions.sort(key=lambda potion: (potion.potion_type[1], potion.potion_type[0], potion.potion_type[2], potion.potion_type[3]))
+
         # Make dictionary: <k,v>[id, 0]
-        potion_counts = {potion.id: 0 for potion in potions}
+        potion_counts = {}
+        for potion in potions:
+            potion_counts[potion.id] = 0
 
         made_one = True
         while made_one:
             made_one = False
             for potion in potions:
                 # Check if you can make the potion (have enough ml and have enough space)
-                if potion.id == 5:  # Yellow potion
-                    if (
-                        50 <= ml_inventory_dict.get('red', 0) and
-                        50 <= ml_inventory_dict.get('blue', 0) and
-                        potion_counts[potion.id] < potion_capacity
-                    ):
-                        # Subtract from ml_inventory_dict
-                        ml_inventory_dict['red'] -= 50
-                        ml_inventory_dict['blue'] -= 50
-
-                        # Increment potion count in dictionary
-                        potion_counts[potion.id] += 1
-
-                        made_one = True
-                else:
-                    if (
-                        potion.potion_type[0] <= ml_inventory_dict.get('red', 0) and
-                        potion.potion_type[1] <= ml_inventory_dict.get('green', 0) and
-                        potion.potion_type[2] <= ml_inventory_dict.get('blue', 0) and
-                        potion.potion_type[3] <= ml_inventory_dict.get('dark', 0) and
-                        potion_counts[potion.id] < potion_capacity
-                    ):
-                        # Subtract from ml_inventory_dict
-                        ml_inventory_dict['red'] -= potion.potion_type[0]
-                        ml_inventory_dict['green'] -= potion.potion_type[1]
-                        ml_inventory_dict['blue'] -= potion.potion_type[2]
+                if (potion.potion_type[0] <= ml_inventory_dict.get('red', 0) and
+                    potion.potion_type[1] <= ml_inventory_dict.get('green', 0) and
+                    potion.potion_type[2] <= ml_inventory_dict.get('blue', 0) and
+                    (potion.potion_type[3] <= ml_inventory_dict.get('dark', 0) or total_gold < 7000) and
+                    potion_counts[potion.id] < potion_capacity):
+                    # Subtract from ml_inventory_dict
+                    ml_inventory_dict['red'] -= potion.potion_type[0]
+                    ml_inventory_dict['green'] -= potion.potion_type[1]
+                    ml_inventory_dict['blue'] -= potion.potion_type[2]
+                    if total_gold >= 7000:
                         ml_inventory_dict['dark'] -= potion.potion_type[3]
-
-                        # Increment potion count in dictionary
-                        potion_counts[potion.id] += 1
-
-                        made_one = True
+                    # Increment potion count in dictionary
+                    potion_counts[potion.id] += 1
+                    made_one = True
 
         # Create the plan
         plan = []
@@ -105,7 +92,6 @@ def get_bottle_plan():
                     "potion_type": potion.potion_type,
                     "quantity": potion_counts[potion.id]
                 })
-
         return plan
 
 if __name__ == "__main__":
