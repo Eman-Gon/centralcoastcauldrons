@@ -47,6 +47,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
         connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries_view (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'red', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_red_ml})
         connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries_view (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'blue', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_blue_ml})
         connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries_view (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'dark', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_dark_ml})
+
 #if qunaity greater 0 then dont put table
     print(f"Total Green ML: {total_green_ml}, Total Red ML: {total_red_ml}, Total Blue ML: {total_blue_ml}, Total Dark ML: {total_dark_ml}, Total Price: {total_price}")
     return "OK"
@@ -95,3 +96,12 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                 break
 
     return barrel_plan
+
+
+
+
+
+        # connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'green', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_green_ml})
+        # connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'red', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_red_ml})
+        # connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'blue', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_blue_ml})
+        # connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'dark', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_dark_ml})
