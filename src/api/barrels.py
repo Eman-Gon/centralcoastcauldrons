@@ -42,12 +42,25 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
         transaction_id = result.scalar_one()
 
         # Record changes in the ledger tables
-        connection.execute(sqlalchemy.text("INSERT INTO gold_ledger_entries (transaction_id, change_in_gold) VALUES (:transaction_id, :change_in_gold)"), {"transaction_id": transaction_id, "change_in_gold": -total_price})
-        connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries_view (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'green', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_green_ml})
-        connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries_view (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'red', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_red_ml})
-        connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries_view (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'blue', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_blue_ml})
-        connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries_view (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'dark', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_dark_ml})
+    connection.execute(sqlalchemy.text("""
+    INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
+    VALUES (:transaction_id, 'green', :change_in_ml)
+"""), {"transaction_id": transaction_id, "change_in_ml": total_green_ml})
 
+    connection.execute(sqlalchemy.text("""
+    INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
+    VALUES (:transaction_id, 'red', :change_in_ml)
+"""), {"transaction_id": transaction_id, "change_in_ml": total_red_ml})
+
+    connection.execute(sqlalchemy.text("""
+    INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
+    VALUES (:transaction_id, 'blue', :change_in_ml)
+"""), {"transaction_id": transaction_id, "change_in_ml": total_blue_ml})
+
+    connection.execute(sqlalchemy.text("""
+    INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
+    VALUES (:transaction_id, 'dark', :change_in_ml)
+"""), {"transaction_id": transaction_id, "change_in_ml": total_dark_ml})
 #if qunaity greater 0 then dont put table
     print(f"Total Green ML: {total_green_ml}, Total Red ML: {total_red_ml}, Total Blue ML: {total_blue_ml}, Total Dark ML: {total_dark_ml}, Total Price: {total_price}")
     return "OK"
@@ -58,11 +71,11 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     print(wholesale_catalog)
     with db.engine.begin() as connection:
         # Calculate the current inventory levels from the ledger tables
-        gold = connection.execute(sqlalchemy.text("SELECT SUM(change_in_gold) FROM gold_ledger_entries")).scalar_one() or 0
+        gold = connection.execute(sqlalchemy.text("SELECT gold FROM gold_ledger_entries_view")).scalar_one() or 0
         num_green_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'green'")).scalar_one() or 0
         num_red_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'red'")).scalar_one() or 0
         num_blue_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'blue'")).scalar_one() or 0
-        num_dark_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'dark'")).scalar_one() or 0
+        num_dark_ml = connection.execute(sqlalchemy.text("SELECT git total_ml FROM ml_ledger_entries_view WHERE color = 'dark'")).scalar_one() or 0
 
         # Retrieve potion quantities from the potion_inventory table
         potion_quantities = connection.execute(sqlalchemy.text("SELECT potion_id, quantity FROM potion_inventory_view")).fetchall()
