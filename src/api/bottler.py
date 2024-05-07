@@ -47,8 +47,8 @@ def get_bottle_plan():
         potion_capacity = connection.execute(sqlalchemy.text("SELECT COALESCE(SUM(quantity), 0) FROM potion_inventory_view")).scalar()
 
         # Query ml_inventory_view
-        ml_inventory = connection.execute(sqlalchemy.text("SELECT potion_type FROM ml_ledger_entries_view")).fetchall()
-        ml_inventory_dict = {row.potion_type: 0 for row in ml_inventory}
+        ml_inventory = connection.execute(sqlalchemy.text("SELECT color, total_ml FROM ml_ledger_entries_view")).fetchall()
+        ml_inventory_dict = {row.color: row.total_ml for row in ml_inventory}
 
         # Query total gold
         total_gold = connection.execute(sqlalchemy.text("SELECT COALESCE(SUM(change_in_gold), 0) FROM gold_ledger_entries")).scalar()
@@ -70,15 +70,17 @@ def get_bottle_plan():
             for potion in potions:
                 # Check if you can make the potion (have enough ml and have enough space)
                 potion_type = potion.potion_type
-                if (potion_type[0] <= ml_inventory_dict.get(potion_type, 0) and
-                    potion_type[1] <= ml_inventory_dict.get(potion_type, 0) and
-                    potion_type[2] <= ml_inventory_dict.get(potion_type, 0) and
-                    (potion_type[3] <= ml_inventory_dict.get(potion_type, 0) or total_gold < 7000) and
+                if (potion_type[0] <= ml_inventory_dict.get('red', 0) and
+                    potion_type[1] <= ml_inventory_dict.get('green', 0) and
+                    potion_type[2] <= ml_inventory_dict.get('blue', 0) and
+                    (potion_type[3] <= ml_inventory_dict.get('dark', 0) or total_gold < 7000) and
                     potion_counts[tuple(potion_type)] < potion_capacity):
                     # Subtract from ml_inventory_dict
-                    ml_inventory_dict[potion_type] -= potion_type[0] + potion_type[1] + potion_type[2]
+                    ml_inventory_dict['red'] -= potion_type[0]
+                    ml_inventory_dict['green'] -= potion_type[1]
+                    ml_inventory_dict['blue'] -= potion_type[2]
                     if total_gold >= 7000:
-                        ml_inventory_dict[potion_type] -= potion_type[3]
+                        ml_inventory_dict['dark'] -= potion_type[3]
                     # Increment potion count in dictionary
                     potion_counts[tuple(potion_type)] += 1
                     made_one = True
