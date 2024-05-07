@@ -15,14 +15,14 @@ router = APIRouter(
 def get_inventory():
     with db.engine.begin() as connection:
         # Retrieve potion quantities from the potion_inventory table
-        total_number_of_potions = sum(connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory")).scalars())
+        total_number_of_potions = sum(connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory_view")).scalars())
 
         # Calculate the current inventory levels from the ledger tables
         gold = connection.execute(sqlalchemy.text("SELECT SUM(change_in_gold) FROM gold_ledger_entries")).scalar_one() or 0
-        num_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'green'")).scalar_one() or 0
-        num_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'red'")).scalar_one() or 0
-        num_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'blue'")).scalar_one() or 0
-        num_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'dark'")).scalar_one() or 0
+        num_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries_view WHERE color = 'green'")).scalar_one() or 0
+        num_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries_view WHERE color = 'red'")).scalar_one() or 0
+        num_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries_view WHERE color = 'blue'")).scalar_one() or 0
+        num_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries_view WHERE color = 'dark'")).scalar_one() or 0
         total_ml_in_barrels = num_green_ml + num_red_ml + num_blue_ml + num_dark_ml
 
         return {

@@ -25,16 +25,16 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
 
         for potion in potions_delivered:
             if potion.potion_type == [0, 100, 0, 0]:
-                connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'green', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+                connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries_view (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'green', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
                 connection.execute(sqlalchemy.text("INSERT INTO potion_ledger_entries (transaction_id, potion_id, change_in_potion) VALUES (:transaction_id, :potion_id, :change_in_potion)"), {"transaction_id": transaction_id, "potion_id": 2, "change_in_potion": potion.quantity})
             elif potion.potion_type == [100, 0, 0, 0]:
-                connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'red', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+                connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries_view (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'red', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
                 connection.execute(sqlalchemy.text("INSERT INTO potion_ledger_entries (transaction_id, potion_id, change_in_potion) VALUES (:transaction_id, :potion_id, :change_in_potion)"), {"transaction_id": transaction_id, "potion_id": 1, "change_in_potion": potion.quantity})
             elif potion.potion_type == [0, 0, 100, 0]:
-                connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'blue', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+                connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries_view (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'blue', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
                 connection.execute(sqlalchemy.text("INSERT INTO potion_ledger_entries (transaction_id, potion_id, change_in_potion) VALUES (:transaction_id, :potion_id, :change_in_potion)"), {"transaction_id": transaction_id, "potion_id": 3, "change_in_potion": potion.quantity})
             elif potion.potion_type == [0, 0, 0, 100]:
-                connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'dark', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+                connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries_view (transaction_id, color, change_in_ml) VALUES (:transaction_id, 'dark', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
                 connection.execute(sqlalchemy.text("INSERT INTO potion_ledger_entries (transaction_id, potion_id, change_in_potion) VALUES (:transaction_id, :potion_id, :change_in_potion)"), {"transaction_id": transaction_id, "potion_id": 4, "change_in_potion": potion.quantity})
 
     return "OK"
@@ -45,72 +45,68 @@ def get_bottle_plan():
     Go from barrel to bottle.
     """
     with db.engine.begin() as connection:
-        # Calculate the current ml levels from the ledger tables
-        num_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'green'")).scalar_one() or 0
-        num_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'red'")).scalar_one() or 0
-        num_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'blue'")).scalar_one() or 0
-        num_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries WHERE color = 'dark'")).scalar_one() or 0
-        gold = connection.execute(sqlalchemy.text("SELECT SUM(change_in_gold) FROM gold_ledger_entries")).scalar_one() or 0
+        # Find amount of space left in potion_capacity
+        potion_capacity = connection.execute(sqlalchemy.text("SELECT SUM(quantity) FROM potion_inventory_view")).scalar_one()
+        potion_capacity = potion_capacity if potion_capacity is not None else 0
 
-        # Query the potion_type from the potion_inventory table
-        potion_types_result = connection.execute(sqlalchemy.text("SELECT id, potion_type FROM potion_inventory")).fetchall()
-        potion_types_map = {potion_id: potion_type for potion_id, potion_type in potion_types_result}
+        # Query ml_inventory_view
+        ml_inventory = connection.execute(sqlalchemy.text("SELECT * FROM ml_ledger_entries_view")).fetchall()
+        ml_inventory_dict = {row.color: row.total_ml for row in ml_inventory}
 
-    potion_types = [num_green_ml, num_red_ml, num_blue_ml, num_dark_ml]
-    plan = []
+        # Query all info about potions (make sure it's a list)
+        potions = connection.execute(sqlalchemy.text("SELECT * FROM potion_inventory")).fetchall()
 
-    while True:
-        made_potion = False
-        # Yellow (id: 5)
-        if 5 in potion_types_map and potion_types[2] >= 250 and potion_types[1] >= 250:
-            plan.append({
-                "quantity": 5,
-                "potion_type": potion_types_map[5]
-            })
-            potion_types[2] -= 250
-            potion_types[1] -= 250
-            made_potion = True
+        # Make dictionary: <k,v>[id, 0]
+        potion_counts = {potion.id: 0 for potion in potions}
 
-        # Green (id: 2)
-        elif 2 in potion_types_map and potion_types[0] >= 500:
-            plan.append({
-                "quantity": 5,
-                "potion_type": potion_types_map[2]
-            })
-            potion_types[0] -= 500
-            made_potion = True
+        made_one = True
+        while made_one:
+            made_one = False
+            for potion in potions:
+                # Check if you can make the potion (have enough ml and have enough space)
+                if potion.id == 5:  # Yellow potion
+                    if (
+                        50 <= ml_inventory_dict.get('red', 0) and
+                        50 <= ml_inventory_dict.get('blue', 0) and
+                        potion_counts[potion.id] < potion_capacity
+                    ):
+                        # Subtract from ml_inventory_dict
+                        ml_inventory_dict['red'] -= 50
+                        ml_inventory_dict['blue'] -= 50
 
-        # Red (id: 1)
-        elif 1 in potion_types_map and potion_types[1] >= 500:
-            plan.append({
-                "quantity": 5,
-                "potion_type": potion_types_map[1]
-            })
-            potion_types[1] -= 500
-            made_potion = True
+                        # Increment potion count in dictionary
+                        potion_counts[potion.id] += 1
 
-        # Blue (id: 3)
-        elif 3 in potion_types_map and potion_types[2] >= 500:
-            plan.append({
-                "quantity": 5,
-                "potion_type": potion_types_map[3]
-            })
-            potion_types[2] -= 500
-            made_potion = True
+                        made_one = True
+                else:
+                    if (
+                        potion.potion_type[0] <= ml_inventory_dict.get('red', 0) and
+                        potion.potion_type[1] <= ml_inventory_dict.get('green', 0) and
+                        potion.potion_type[2] <= ml_inventory_dict.get('blue', 0) and
+                        potion.potion_type[3] <= ml_inventory_dict.get('dark', 0) and
+                        potion_counts[potion.id] < potion_capacity
+                    ):
+                        # Subtract from ml_inventory_dict
+                        ml_inventory_dict['red'] -= potion.potion_type[0]
+                        ml_inventory_dict['green'] -= potion.potion_type[1]
+                        ml_inventory_dict['blue'] -= potion.potion_type[2]
+                        ml_inventory_dict['dark'] -= potion.potion_type[3]
 
-        # Dark (id: 4)
-        elif 4 in potion_types_map and potion_types[3] >= 500 and gold >= 3500:
-            plan.append({
-                "quantity": 5,
-                "potion_type": potion_types_map[4]
-            })
-            potion_types[3] -= 500
-            made_potion = True
+                        # Increment potion count in dictionary
+                        potion_counts[potion.id] += 1
 
-        if not made_potion:
-            break
+                        made_one = True
 
-    return plan
+        # Create the plan
+        plan = []
+        for potion in potions:
+            if potion_counts[potion.id] > 0:
+                plan.append({
+                    "potion_type": potion.potion_type,
+                    "quantity": potion_counts[potion.id]
+                })
+
+        return plan
 
 if __name__ == "__main__":
     print(get_bottle_plan())
