@@ -18,11 +18,11 @@ def get_inventory():
         total_number_of_potions = sum(connection.execute(sqlalchemy.text("SELECT quantity FROM potion_inventory_view")).scalars())
 
         # Calculate the current inventory levels from the ledger tables
-        gold = connection.execute(sqlalchemy.text("SELECT SUM(change_in_gold) FROM gold_ledger_entries")).scalar_one() or 0
-        num_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries_view WHERE color = 'green'")).scalar_one() or 0
-        num_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries_view WHERE color = 'red'")).scalar_one() or 0
-        num_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries_view WHERE color = 'blue'")).scalar_one() or 0
-        num_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries_view WHERE color = 'dark'")).scalar_one() or 0
+        gold = connection.execute(sqlalchemy.text("SELECT gold FROM inventory_summary_view")).scalar_one() or 0
+        num_green_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'green'")).scalar_one() or 0
+        num_red_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'red'")).scalar_one() or 0
+        num_blue_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'blue'")).scalar_one() or 0
+        num_dark_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'dark'")).scalar_one() or 0
         total_ml_in_barrels = num_green_ml + num_red_ml + num_blue_ml + num_dark_ml
 
         return {
@@ -41,7 +41,7 @@ def get_capacity_plan():
     """
     with db.engine.begin() as connection:
         # Calculate the current gold from the ledger tables
-        gold = connection.execute(sqlalchemy.text("SELECT SUM(change_in_gold) FROM gold_ledger_entries")).scalar_one() or 0
+        gold = connection.execute(sqlalchemy.text("SELECT gold FROM inventory_summary_view")).scalar_one() or 0
 
         # Calculate the total capacity units that can be purchased
         total_capacity_units = gold // 1000
@@ -68,7 +68,7 @@ def deliver_capacity_plan(capacity_purchase: CapacityPurchase, order_id: int):
     """
     with db.engine.begin() as connection:
         # Calculate the current gold from the ledger tables
-        gold = connection.execute(sqlalchemy.text("SELECT SUM(change_in_gold) FROM gold_ledger_entries")).scalar_one() or 0
+        gold = connection.execute(sqlalchemy.text("SELECT gold inventory_summary_view")).scalar_one() or 0
 
         # Calculate the total cost of the capacity purchase
         total_cost = (capacity_purchase.potion_capacity // 50) * 1000 + (capacity_purchase.ml_capacity // 10000) * 1000
