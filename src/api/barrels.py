@@ -58,14 +58,15 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     with db.engine.begin() as connection:
         # Calculate the current inventory levels from the ledger tables
         gold = connection.execute(sqlalchemy.text("SELECT SUM(change_in_gold) FROM gold_ledger_entries")).scalar_one() or 0
-        num_green_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries_view WHERE color = 'green'")).scalar_one() or 0
-        num_red_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries_view WHERE color = 'red'")).scalar_one() or 0
-        num_blue_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries_view WHERE color = 'blue'")).scalar_one() or 0
-        num_dark_ml = connection.execute(sqlalchemy.text("SELECT SUM(change_in_ml) FROM ml_ledger_entries_view WHERE color = 'dark'")).scalar_one() or 0
+        num_green_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'green'")).scalar_one() or 0
+        num_red_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'red'")).scalar_one() or 0
+        num_blue_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'blue'")).scalar_one() or 0
+        num_dark_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'dark'")).scalar_one() or 0
 
         # Retrieve potion quantities from the potion_inventory table
-        potion_quantities = connection.execute(sqlalchemy.text("SELECT id, quantity FROM potion_inventory_view")).fetchall()
+        potion_quantities = connection.execute(sqlalchemy.text("SELECT potion_id, quantity FROM potion_inventory_view")).fetchall()
         potion_quantities = {potion_id: quantity for potion_id, quantity in potion_quantities}
+        
 
         # Sort small barrels by ascending ml_per_barrel
         sorted_small_barrels = sorted((barrel for barrel in wholesale_catalog if 'SMALL' in barrel.sku), key=lambda barrel: barrel.ml_per_barrel)
