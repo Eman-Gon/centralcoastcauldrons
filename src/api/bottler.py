@@ -20,15 +20,17 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
     print(f"potions delivered: {potions_delivered} order_id: {order_id}")
     with db.engine.begin() as connection:
         # Add a new transaction
-        result = connection.execute(sqlalchemy.text("INSERT INTO transactions (description) VALUES (:description) RETURNING id"), {"description": f"Delivery of bottled potions (order {order_id})"})
-        transaction_id = result.scalar_one()
+        result = connection.execute(sqlalchemy.text("INSERT INTO transactions (description) VALUES (:description) RETURNING id"), 
+                                    {"description": f"Delivery of bottled potions (order {order_id})"}).scalar_one()
+        #transaction_id = result.scalar_one()
 
 @router.post("/deliver/{order_id}")
 def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
     print(f"potions delivered: {potions_delivered} order_id: {order_id}")
     with db.engine.begin() as connection:
         # Add a new transaction
-        result = connection.execute(sqlalchemy.text("INSERT INTO transactions (description) VALUES (:description) RETURNING id"), {"description": f"Delivery of bottled potions (order {order_id})"})
+        result = connection.execute(sqlalchemy.text("INSERT INTO transactions (description) VALUES (:description) RETURNING id"), 
+                                    {"description": f"Delivery of bottled potions (order {order_id})"})
         transaction_id = result.scalar_one()
 
         for potion in potions_delivered:
@@ -37,25 +39,25 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
                     INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
                     VALUES (:transaction_id, 'green', :change_in_ml)
                 """), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
-                # ... (rest of the code for inserting into potion_ledger_entries)
+
             elif potion.potion_type == [100, 0, 0, 0]:
                 connection.execute(sqlalchemy.text("""
                     INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
                     VALUES (:transaction_id, 'red', :change_in_ml)
                 """), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
-                # ... (rest of the code for inserting into potion_ledger_entries)
+
             elif potion.potion_type == [0, 0, 100, 0]:
                 connection.execute(sqlalchemy.text("""
                     INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
                     VALUES (:transaction_id, 'blue', :change_in_ml)
                 """), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
-                # ... (rest of the code for inserting into potion_ledger_entries)
+
             elif potion.potion_type == [0, 0, 0, 100]:
                 connection.execute(sqlalchemy.text("""
                     INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
                     VALUES (:transaction_id, 'dark', :change_in_ml)
                 """), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
-                # ... (rest of the code for inserting into potion_ledger_entries)
+
     return "OK"
 
 @router.post("/plan")

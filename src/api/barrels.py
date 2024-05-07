@@ -71,11 +71,11 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     print(wholesale_catalog)
     with db.engine.begin() as connection:
         # Calculate the current inventory levels from the ledger tables
-        gold = connection.execute(sqlalchemy.text("SELECT gold FROM gold_ledger_entries_view")).scalar_one() or 0
+        gold = connection.execute(sqlalchemy.text("SELECT gold FROM inventory_summary_view")).scalar_one() or 0
         num_green_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'green'")).scalar_one() or 0
         num_red_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'red'")).scalar_one() or 0
         num_blue_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'blue'")).scalar_one() or 0
-        num_dark_ml = connection.execute(sqlalchemy.text("SELECT git total_ml FROM ml_ledger_entries_view WHERE color = 'dark'")).scalar_one() or 0
+        num_dark_ml = connection.execute(sqlalchemy.text("SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'dark'")).scalar_one() or 0
 
         # Retrieve potion quantities from the potion_inventory table
         potion_quantities = connection.execute(sqlalchemy.text("SELECT potion_id, quantity FROM potion_inventory_view")).fetchall()
