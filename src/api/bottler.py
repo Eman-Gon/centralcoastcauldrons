@@ -65,25 +65,29 @@ def get_bottle_plan():
     """Go from barrel to bottle."""
     with db.engine.begin() as connection:
         # Find amount of space left in potion_capacity
-        potion_capacity = connection.execute(sqlalchemy.text("SELECT COALESCE(SUM(quantity), 0) FROM potion_inventory_view")).scalar()
+        potion_capacity = (connection.execute(sqlalchemy.text("SELECT potion_capacity FROM global_values")).scalar_one()
+         - connection.execute(sqlalchemy.text("SELECT total_potions FROM inventory_summary_view")).scalar())
 
         # Query ml_inventory_view
         ml_inventory = connection.execute(sqlalchemy.text("SELECT color, total_ml FROM ml_ledger_entries_view")).fetchall()
         ml_inventory_dict = {row.color: row.total_ml for row in ml_inventory}
 
         # Query total gold
-        total_gold = connection.execute(sqlalchemy.text("SELECT COALESCE(SUM(change_in_gold), 0) FROM gold_ledger_entries")).scalar()
+        total_gold = connection.execute(sqlalchemy.text("SELECT gold FROM inventory_summary_view")).scalar()
 
         # Query potion_type from potion_inventory (make sure it's a list)
         potions = connection.execute(sqlalchemy.text("SELECT * FROM potion_inventory")).fetchall()
 
         # Sort potions based on potion_type
-        potions.sort(key=lambda potion: (len(potion.potion_type) >= 5 and potion.potion_type[1] or 0,
-                                         len(potion.potion_type) >= 5 and potion.potion_type[0] or 0,
-                                         len(potion.potion_type) >= 5 and potion.potion_type[2] or 0,
-                                         len(potion.potion_type) >= 5 and potion.potion_type[3] or 0,
-                                         len(potion.potion_type) >= 5 and potion.potion_type[4] or 0))
-
+        potions.sort(key=lambda potion: (
+            5 in potion.potion_type,  # Prioritize potions with type 5
+            potion.potion_type.count(1),  # Sort by count of type 1
+            potion.potion_type.count(2),  # Sort by count of type 2
+            potion.potion_type.count(3),  # Sort by count of type 3
+            potion.potion_type.count(4)   # Sort by count of type 4
+        ))
+        
+        #priority logic the least of
         # Make dictionary: <k,v>[potion_type, 0]
         potion_counts = {}
         for potion in potions:
@@ -106,17 +110,17 @@ def get_bottle_plan():
                         potion_counts[potion_type] += 1
                         made_one = True
                 else:
-                    if (len(potion_type) >= 1 and potion_type[0] <= ml_inventory_dict.get('red', 0) and
-                        len(potion_type) >= 2 and potion_type[1] <= ml_inventory_dict.get('green', 0) and
-                        len(potion_type) >= 3 and potion_type[2] <= ml_inventory_dict.get('blue', 0) and
-                        (len(potion_type) >= 4 and potion_type[3] <= ml_inventory_dict.get('dark', 0) or total_gold < 7000) and
+                    if ((len(potion_type) >= 1 and potion_type[0] <= ml_inventory_dict.get('red', 0)) and
+                        (len(potion_type) >= 2 and potion_type[1] <= ml_inventory_dict.get('green', 0)) and
+                        (len(potion_type) >= 3 and potion_type[2] <= ml_inventory_dict.get('blue', 0)) and
+                        (total_gold < 7000 or (len(potion_type) >= 4 and potion_type[3] <= ml_inventory_dict.get('dark', 0))) and
                         potion_counts[potion_type] < potion_capacity):
                         # Subtract from ml_inventory_dict
-                        ml_inventory_dict['red'] -= len(potion_type) >= 1 and potion_type[0] or 0
-                        ml_inventory_dict['green'] -= len(potion_type) >= 2 and potion_type[1] or 0
-                        ml_inventory_dict['blue'] -= len(potion_type) >= 3 and potion_type[2] or 0
-                        if total_gold >= 7000:
-                            ml_inventory_dict['dark'] -= len(potion_type) >= 4 and potion_type[3] or 0
+                        ml_inventory_dict['red'] -= potion_type[0] if len(potion_type) >= 1 else 0
+                        ml_inventory_dict['green'] -= potion_type[1] if len(potion_type) >= 2 else 0
+                        ml_inventory_dict['blue'] -= potion_type[2] if len(potion_type) >= 3 else 0
+                        if len(potion_type) >= 4 and total_gold >= 7000:
+                            ml_inventory_dict['dark'] -= potion_type[3]
                         # Increment potion count in dictionary
                         potion_counts[potion_type] += 1
                         made_one = True
