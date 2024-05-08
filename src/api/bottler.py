@@ -60,81 +60,171 @@ def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int
 
     return "OK"
 
+# @router.post("/plan")
+# def get_bottle_plan():
+#     """Go from barrel to bottle."""
+#     with db.engine.begin() as connection:
+#         # Find amount of space left in potion_capacity
+#         potion_capacity = (connection.execute(sqlalchemy.text("SELECT potion_capacity FROM global_values")).scalar_one()
+#          - connection.execute(sqlalchemy.text("SELECT total_potions FROM inventory_summary_view")).scalar())
+
+#         # Query ml_inventory_view
+#         ml_inventory = connection.execute(sqlalchemy.text("SELECT color, total_ml FROM ml_ledger_entries_view")).fetchall()
+#         ml_inventory_dict = {row.color: row.total_ml for row in ml_inventory}
+
+#         # Query total gold
+#         total_gold = connection.execute(sqlalchemy.text("SELECT COALESCE(SUM(change_in_gold), 0) FROM gold_ledger_entries")).scalar()
+
+#         # Query potion_type from potion_inventory (make sure it's a list)
+#         potions = connection.execute(sqlalchemy.text("SELECT * FROM potion_inventory")).fetchall()
+
+#         # Sort potions based on potion_type
+#         # potions.sort(key=lambda potion: ((potion.potion_type) >= 5 and potion.potion_type[1] or 0,
+#         #                                  (potion.potion_type) >= 5 and potion.potion_type[0] or 0,
+#         #                                  (potion.potion_type) >= 5 and potion.potion_type[2] or 0,
+#         #                                  (potion.potion_type) >= 5 and potion.potion_type[3] or 0,
+#         #                                  (potion.potion_type) >= 5 and potion.potion_type[4] or 0))
+
+#         # Make dictionary: <k,v>[potion_type, 0]
+#         potion_counts = {}
+#         for potion in potions:
+#             potion_counts[tuple(potion.potion_type)] = 0
+
+#         made_one = True
+#         while made_one:
+#             made_one = False
+#             for potion in potions:
+#                 # Check if you can make the potion (have enough ml and have enough space)
+#                 potion_type = tuple(potion.potion_type)
+#                 if potion.id == 5:  # Yellow potion
+#                     if (50 <= ml_inventory_dict.get('red', 0) and
+#                         50 <= ml_inventory_dict.get('blue', 0) and
+#                         potion_counts[potion_type] < potion_capacity):
+#                         # Subtract from ml_inventory_dict
+#                         ml_inventory_dict['red'] -= 50
+#                         ml_inventory_dict['blue'] -= 50
+#                         # Increment potion count in dictionary
+#                         potion_counts[potion_type] += 1
+#                         made_one = True
+#                 else:
+#                     if ((potion_type) >= 1 and potion_type[0] <= ml_inventory_dict.get('red', 0) and
+#                         (potion_type) >= 2 and potion_type[1] <= ml_inventory_dict.get('green', 0) and
+#                         (potion_type) >= 3 and potion_type[2] <= ml_inventory_dict.get('blue', 0) and
+#                         ((potion_type) >= 4 and potion_type[3] <= ml_inventory_dict.get('dark', 0) or total_gold < 7000) and
+#                         potion_counts[potion_type] < potion_capacity):
+#                         # Subtract from ml_inventory_dict
+#                         ml_inventory_dict['red'] -= len(potion_type) >= 1 and potion_type[0] or 0
+#                         ml_inventory_dict['green'] -= len(potion_type) >= 2 and potion_type[1] or 0
+#                         ml_inventory_dict['blue'] -= len(potion_type) >= 3 and potion_type[2] or 0
+#                         if total_gold >= 7000:
+#                             ml_inventory_dict['dark'] -= len(potion_type) >= 4 and potion_type[3] or 0
+#                         # Increment potion count in dictionary
+#                         potion_counts[potion_type] += 1
+#                         made_one = True
+
+#         # Create the plan
+#         plan = []
+#         for potion in potions:
+#             potion_type = tuple(potion.potion_type)
+#             if potion_counts[potion_type] > 0:
+#                 plan.append({
+#                     "potion_type": potion_type,
+#                     "quantity": potion_counts[potion_type]
+#                 })
+#         return plan
 @router.post("/plan")
 def get_bottle_plan():
     """Go from barrel to bottle."""
     with db.engine.begin() as connection:
         # Find amount of space left in potion_capacity
-        potion_capacity = (connection.execute(sqlalchemy.text("SELECT potion_capacity FROM global_values")).scalar_one()
-         - connection.execute(sqlalchemy.text("SELECT total_potions FROM inventory_summary_view")).scalar())
+        ml_inventory = [0,0,0,0]
+        potion_capacity, total_potions, ml_inventory[0], ml_inventory[1], ml_inventory[2], ml_inventory[3] = connection.execute(sqlalchemy.text(
+                """
+                SELECT 
+                    (
+                        SELECT potion_capacity FROM global_values
+                    ) as potion_capacity,
+                    (
+                        SELECT total_potions FROM inventory_summary_view
+                    ) as total_potions,
+                    (
+                        SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'red'
+                    ) as red_ml,
+                    (
+                        SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'green'
+                    ) as green_ml,
+                    (
+                        SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'blue'
+                    ) as blue_ml,
+                    (
+                        SELECT total_ml FROM ml_ledger_entries_view WHERE color = 'dark'
+                    ) as dark_ml
+                                            
+
+                """
+            )
+        ).fetchone()
+        space_available = potion_capacity - total_potions
 
         # Query ml_inventory_view
-        ml_inventory = connection.execute(sqlalchemy.text("SELECT color, total_ml FROM ml_ledger_entries_view")).fetchall()
-        ml_inventory_dict = {row.color: row.total_ml for row in ml_inventory}
+        # ml_inventory = connection.execute(sqlalchemy.text("SELECT color, total_ml FROM ml_ledger_entries_view")).fetchall()
+        # ml_inventory_dict = {row.color: row.total_ml for row in ml_inventory}
 
         # Query total gold
-        total_gold = connection.execute(sqlalchemy.text("SELECT gold FROM inventory_summary_view")).scalar()
+        # total_gold = connection.execute(sqlalchemy.text("SELECT gold FROM inventory_summary_view")).scalar()
 
         # Query potion_type from potion_inventory (make sure it's a list)
         potions = connection.execute(sqlalchemy.text("SELECT * FROM potion_inventory")).fetchall()
 
-        # Sort potions based on potion_type
-        potions.sort(key=lambda potion: (
-            5 in potion.potion_type,  # Prioritize potions with type 5
-            potion.potion_type.count(1),  # Sort by count of type 1
-            potion.potion_type.count(2),  # Sort by count of type 2
-            potion.potion_type.count(3),  # Sort by count of type 3
-            potion.potion_type.count(4)   # Sort by count of type 4
-        ))
-        
-        #priority logic the least of
-        # Make dictionary: <k,v>[potion_type, 0]
-        potion_counts = {}
-        for potion in potions:
-            potion_counts[tuple(potion.potion_type)] = 0
+        # Make dictionary: <k,v> [id, 0]
+        potion_inventory_dict = {potion.id: 0 for potion in potions}
 
         made_one = True
         while made_one:
             made_one = False
             for potion in potions:
-                # Check if you can make the potion (have enough ml and have enough space)
-                potion_type = tuple(potion.potion_type)
-                if potion.id == 5:  # Yellow potion
-                    if (50 <= ml_inventory_dict.get('red', 0) and
-                        50 <= ml_inventory_dict.get('blue', 0) and
-                        potion_counts[potion_type] < potion_capacity):
-                        # Subtract from ml_inventory_dict
-                        ml_inventory_dict['red'] -= 50
-                        ml_inventory_dict['blue'] -= 50
-                        # Increment potion count in dictionary
-                        potion_counts[potion_type] += 1
-                        made_one = True
-                else:
-                    if ((len(potion_type) >= 1 and potion_type[0] <= ml_inventory_dict.get('red', 0)) and
-                        (len(potion_type) >= 2 and potion_type[1] <= ml_inventory_dict.get('green', 0)) and
-                        (len(potion_type) >= 3 and potion_type[2] <= ml_inventory_dict.get('blue', 0)) and
-                        (total_gold < 7000 or (len(potion_type) >= 4 and potion_type[3] <= ml_inventory_dict.get('dark', 0))) and
-                        potion_counts[potion_type] < potion_capacity):
-                        # Subtract from ml_inventory_dict
-                        ml_inventory_dict['red'] -= potion_type[0] if len(potion_type) >= 1 else 0
-                        ml_inventory_dict['green'] -= potion_type[1] if len(potion_type) >= 2 else 0
-                        ml_inventory_dict['blue'] -= potion_type[2] if len(potion_type) >= 3 else 0
-                        if len(potion_type) >= 4 and total_gold >= 7000:
-                            ml_inventory_dict['dark'] -= potion_type[3]
-                        # Increment potion count in dictionary
-                        potion_counts[potion_type] += 1
-                        made_one = True
+                # Check if the potion can be made (have enough ml and space)
+                can_make_potion = True
+                for i in range(0,4):
+                    if ml_inventory[i] < potion.potion_type[i]:
+                        can_make_potion = False
+                        break
+                if can_make_potion and space_available > 0:
+                    # Subtract the required ml from the ml_inventory_dict
+                    for i in range(0,4):
+                        ml_inventory[i] -= potion.potion_type[i]
+                    potion_inventory_dict[potion.id] += 1
+                    space_available -= 1
+                    made_one = True
 
         # Create the plan
         plan = []
-        for potion in potions:
-            potion_type = tuple(potion.potion_type)
-            if potion_counts[potion_type] > 0:
-                plan.append({
-                    "potion_type": potion_type,
-                    "quantity": potion_counts[potion_type]
-                })
-        return plan
+    for potion_id, quantity in potion_inventory_dict.items():  # Iterate over the key-value pairs in potion_inventory_dict
+        potion_type = next(potion.potion_type for potion in potions if potion.id == potion_id)  # Find the potion_type for the current potion_id
+    
+        if quantity > 0:
+            plan.append({"potion_type": potion_type, "quantity": quantity})
 
+    return plan
 if __name__ == "__main__":
     print(get_bottle_plan())
+
+
+
+#      make dictionary :<k,v>[id,0]
+#     madeone = Truewhile made one = True
+#     madeone = False
+#     for potion in potionList:
+#     if you can make it:
+# if you can make it:(have enough ml and have enough space things to cosnider)
+# subtract from ml PotionInventorydict[potion id] + =1
+# madeone=True
+
+# #after loop
+# plan =[]
+
+# for potion in potionList:
+#     plan.append(["potion_type":potion.potiontype,"quuantity": potion.quantity])
+#     return plan
+
+# So also make sure Id as key in dict and only id and potion type
