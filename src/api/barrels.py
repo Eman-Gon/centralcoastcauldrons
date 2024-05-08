@@ -19,50 +19,60 @@ class Barrel(BaseModel):
 
 @router.post("/deliver/{order_id}")
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
-    total_green_ml = 0
-    total_red_ml = 0
-    total_blue_ml = 0
-    total_dark_ml = 0
+    total_used = {
+        "green": 0,
+        "red": 0,
+        "blue": 0,
+        "dark": 0
+    }
     total_price = 0
 
     for barrel in barrels_delivered:
         if barrel.potion_type == [0, 1, 0, 0]:
-            total_green_ml += barrel.ml_per_barrel * barrel.quantity
+            total_used["green"] += barrel.ml_per_barrel * barrel.quantity
         elif barrel.potion_type == [1, 0, 0, 0]:
-            total_red_ml += barrel.ml_per_barrel * barrel.quantity
+            total_used["red"] += barrel.ml_per_barrel * barrel.quantity
         elif barrel.potion_type == [0, 0, 1, 0]:
-            total_blue_ml += barrel.ml_per_barrel * barrel.quantity
+            total_used["blue"] += barrel.ml_per_barrel * barrel.quantity
         elif barrel.potion_type == [0, 0, 0, 1]:
-            total_dark_ml += barrel.ml_per_barrel * barrel.quantity
+            total_used["dark"] += barrel.ml_per_barrel * barrel.quantity
         total_price += barrel.price * barrel.quantity
 
     with db.engine.begin() as connection:
         # Add a new transaction
-        result = connection.execute(sqlalchemy.text("INSERT INTO transactions (description) VALUES (:description) RETURNING id"), {"description": f"Delivery of barrels (order {order_id})"})
-        transaction_id = result.scalar_one()
+        transaction_id = connection.execute(
+            sqlalchemy.text(
+                "INSERT INTO transactions (description) VALUES (:description) RETURNING id"
+            ), 
+            {"description": f"Delivery of barrels (order {order_id})"}
+        ).scalar_one()
 
-        # Record changes in the ledger tables
-    connection.execute(sqlalchemy.text("""
-    INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
-    VALUES (:transaction_id, 'green', :change_in_ml)
-"""), {"transaction_id": transaction_id, "change_in_ml": total_green_ml})
+        for color in total_used:
+            if total_used[color] > 0:
+                connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml) VALUES (:transaction_id, :color, :change_in_ml)"),
+                                    {
+                                        "transaction_id": transaction_id,
+                                        "color": color,
+                                        "change_in_ml": total_used[color]
+                                    }
+                                   )
 
-    connection.execute(sqlalchemy.text("""
-    INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
-    VALUES (:transaction_id, 'red', :change_in_ml)
-"""), {"transaction_id": transaction_id, "change_in_ml": total_red_ml})
+        # connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)VALUES (:transaction_id, 'green', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_green_ml})
 
-    connection.execute(sqlalchemy.text("""
-    INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
-    VALUES (:transaction_id, 'blue', :change_in_ml)
-"""), {"transaction_id": transaction_id, "change_in_ml": total_blue_ml})
+        # connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)VALUES (:transaction_id, 'red', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_red_ml})
 
-    connection.execute(sqlalchemy.text("""
-    INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
-    VALUES (:transaction_id, 'dark', :change_in_ml)
-"""), {"transaction_id": transaction_id, "change_in_ml": total_dark_ml})
+        # connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)VALUES (:transaction_id, 'blue', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_blue_ml})
+
+        # connection.execute(sqlalchemy.text("INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)VALUES (:transaction_id, 'dark', :change_in_ml)"), {"transaction_id": transaction_id, "change_in_ml": total_dark_ml})
+        connection.execute(sqlalchemy.text("INSERT INTO gold_ledger_entries (transaction_id, change_in_gold) VALUES (:transaction_id, :total_price)"),
+                                    {
+                                        "transaction_id": transaction_id,
+                                        "total_price": total_price * -1
+                                    }
+                                   )
+        
 #if qunaity greater 0 then dont put table
-    print(f"Total Green ML: {total_green_ml}, Total Red ML: {total_red_ml}, Total Blue ML: {total_blue_ml}, Total Dark ML: {total_dark_ml}, Total Price: {total_price}")
+    print(f"Total Green ML: {total_used["green"]}, Total Red ML: {total_used["red"]}, Total Blue ML: {total_used["blue"]}, Total Dark ML: {total_used["dark"]}, Total Price: {total_price}")
     return "OK"
 
 # Gets called once a day
