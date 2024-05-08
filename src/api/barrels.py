@@ -72,7 +72,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
                                    )
         
 #if qunaity greater 0 then dont put table
-    print(f"Total Green ML: {total_used["green"]}, Total Red ML: {total_used["red"]}, Total Blue ML: {total_used["blue"]}, Total Dark ML: {total_used["dark"]}, Total Price: {total_price}")
+    print(f"Total Green ML: {total_used['green']}, Total Red ML: {total_used['red']}, Total Blue ML: {total_used['blue']}, Total Dark ML: {total_used['dark']}, Total Price: {total_price}")
     return "OK"
 
 # Gets called once a day
