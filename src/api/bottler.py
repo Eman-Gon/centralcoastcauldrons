@@ -19,46 +19,96 @@ class PotionInventory(BaseModel):
 def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
     print(f"potions delivered: {potions_delivered} order_id: {order_id}")
     with db.engine.begin() as connection:
-        # Add a new transaction
-        result = connection.execute(sqlalchemy.text("INSERT INTO transactions (description) VALUES (:description) RETURNING id"), 
-                                    {"description": f"Delivery of bottled potions (order {order_id})"}).scalar_one()
-        #transaction_id = result.scalar_one()
+        mlUsed = [0, 0, 0, 0]
 
-@router.post("/deliver/{order_id}")
-def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
-    print(f"potions delivered: {potions_delivered} order_id: {order_id}")
-    with db.engine.begin() as connection:
-        # Add a new transaction
-        result = connection.execute(sqlalchemy.text("INSERT INTO transactions (description) VALUES (:description) RETURNING id"), 
-                                    {"description": f"Delivery of bottled potions (order {order_id})"})
-        transaction_id = result.scalar_one()
+        # Insert into transactions, returning id
+        transaction_id = connection.execute(sqlalchemy.text("""
+            INSERT INTO transactions (description)
+            VALUES ('Deliver potions')
+            RETURNING id
+        """)).scalar()
 
-        for potion in potions_delivered:
-            if potion.potion_type == [0, 100, 0, 0]:
-                connection.execute(sqlalchemy.text("""
-                    INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
-                    VALUES (:transaction_id, 'green', :change_in_ml)
-                """), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+        for p in potions_delivered:
+            for i in range(0, 4):
+                mlUsed[i] += p.potion_type[i] * p.quantity
 
-            elif potion.potion_type == [100, 0, 0, 0]:
-                connection.execute(sqlalchemy.text("""
-                    INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
-                    VALUES (:transaction_id, 'red', :change_in_ml)
-                """), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+            # Insert entry into potion_ledger_entries
+            potion_id = connection.execute(sqlalchemy.text("""
+                SELECT id FROM potion_inventory
+                WHERE potion_type = :potion_type
+            """), {"potion_type": p.potion_type}).scalar()
 
-            elif potion.potion_type == [0, 0, 100, 0]:
-                connection.execute(sqlalchemy.text("""
-                    INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
-                    VALUES (:transaction_id, 'blue', :change_in_ml)
-                """), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+            connection.execute(sqlalchemy.text("""
+                INSERT INTO potion_ledger_entries (potion_id, change_in_potion, transaction_id)
+                VALUES (:potion_id, :change_in_potion, :transaction_id)
+            """), {"potion_id": potion_id, "change_in_potion": p.quantity, "transaction_id": transaction_id})
 
-            elif potion.potion_type == [0, 0, 0, 100]:
-                connection.execute(sqlalchemy.text("""
-                    INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
-                    VALUES (:transaction_id, 'dark', :change_in_ml)
-                """), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+        # Insert entries into ml_ledger_entries
+        colors = ['red', 'green', 'blue', 'dark']
+        for i, color in enumerate(colors):
+            connection.execute(sqlalchemy.text("""
+                INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
+                VALUES (:transaction_id, :color, :change_in_ml)
+            """), {"transaction_id": transaction_id, "color": color, "change_in_ml": mlUsed[i] * -1})
 
     return "OK"
+
+# import sqlalchemy
+# from src import database as db
+# from fastapi import APIRouter, Depends
+# from enum import Enum
+# from pydantic import BaseModel
+# from src.api import auth
+
+# router = APIRouter(
+#     prefix="/bottler",
+#     tags=["bottler"],
+#     dependencies=[Depends(auth.get_api_key)],
+# )
+
+# class PotionInventory(BaseModel):
+#     potion_type: list[int]
+#     quantity: int
+
+
+# # updation potion method then potion ledgers, then maulally update
+    
+#     #did the ml not being called defintly not doing potions
+# @router.post("/deliver/{order_id}")
+# def post_deliver_bottles(potions_delivered: list[PotionInventory], order_id: int):
+#     print(f"potions delivered: {potions_delivered} order_id: {order_id}")
+#     with db.engine.begin() as connection:
+#         # Add a new transaction
+#         result = connection.execute(sqlalchemy.text("INSERT INTO transactions (description) VALUES (:description) RETURNING id"), 
+#                                     {"description": f"Delivery of bottled potions (order {order_id})"})
+#         transaction_id = result.scalar_one()
+
+#         for potion in potions_delivered:
+#             if potion.potion_type == [0, 100, 0, 0]:
+#                 connection.execute(sqlalchemy.text("""
+#                     INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
+#                     VALUES (:transaction_id, 'green', :change_in_ml)
+#                 """), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+
+#             elif potion.potion_type == [100, 0, 0, 0]:
+#                 connection.execute(sqlalchemy.text("""
+#                     INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
+#                     VALUES (:transaction_id, 'red', :change_in_ml)
+#                 """), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+
+#             elif potion.potion_type == [0, 0, 100, 0]:
+#                 connection.execute(sqlalchemy.text("""
+#                     INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
+#                     VALUES (:transaction_id, 'blue', :change_in_ml)
+#                 """), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+
+#             elif potion.potion_type == [0, 0, 0, 100]:
+#                 connection.execute(sqlalchemy.text("""
+#                     INSERT INTO ml_ledger_entries (transaction_id, color, change_in_ml)
+#                     VALUES (:transaction_id, 'dark', :change_in_ml)
+#                 """), {"transaction_id": transaction_id, "change_in_ml": -(100 * potion.quantity)})
+
+#     return "OK"
 
 # @router.post("/plan")
 # def get_bottle_plan():
