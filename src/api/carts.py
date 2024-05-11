@@ -31,74 +31,113 @@ def search_orders(
     sort_col: search_sort_options = search_sort_options.timestamp,
     sort_order: search_sort_order = search_sort_order.desc,
 ):
+    """
+    Search for cart line items by customer name and/or potion sku.
+
+    Customer name and potion sku filter to orders that contain the 
+    string (case insensitive). If the filters aren't provided, no
+    filtering occurs on the respective search term.
+
+    Search page is a cursor for pagination. The response to this
+    search endpoint will return previous or next if there is a
+    previous or next page of results available. The token passed
+    in that search response can be passed in the next search request
+    as search page to get that page of results.
+
+    Sort col is which column to sort by and sort order is the direction
+    of the search. They default to searching by timestamp of the order
+    in descending order.
+
+    The response itself contains a previous and next page token (if
+    such pages exist) and the results as an array of line items. Each
+    line item contains the line item id (must be unique), item sku, 
+    customer name, line item total (in gold), and timestamp of the order.
+    Your results must be paginated, the max results you can return at any
+    time is 5 total line items.
+    """
+
+    # Build the base query
+    query = """
+        SELECT
+            cart_sales.cart_id,
+            cart_sales.potion_id,
+            potion_inventory.sku AS item_sku,
+            carts.customer AS customer_name,
+            CAST(potion_inventory.price * cart_sales.quantity AS INTEGER) AS line_item_total,
+            cart_sales.created_at AS timestamp
+        FROM
+            cart_sales
+            JOIN potion_inventory ON cart_sales.potion_id = potion_inventory.id
+            JOIN carts ON cart_sales.cart_id = carts.id
+    """
+
+    params = {}
+
+    # Apply filters
+    if sort_col is search_sort_options.customer_name:
+        order_by = sqlalchemy.text("carts.customer")
+    elif sort_col is search_sort_options.item_sku:
+        order_by = sqlalchemy.text("potion_inventory.sku")
+    elif sort_col is search_sort_options.line_item_total:
+        order_by = sqlalchemy.text("CAST(potion_inventory.price * cart_sales.quantity AS INTEGER)")
+    elif sort_col is search_sort_options.timestamp:
+        order_by = sqlalchemy.text("cart_sales.created_at")
+    else:
+        assert False
+
+    if sort_order is search_sort_order.desc:
+        order_by = sqlalchemy.desc(order_by)
+
+    limit = 5
+    offset = 0
+    if search_page:
+        offset = int(search_page)
+
+    stmt = (
+        sqlalchemy.select(
+            sqlalchemy.text("cart_sales.cart_id"),
+            sqlalchemy.text("cart_sales.potion_id"),
+            sqlalchemy.text("potion_inventory.sku AS item_sku"),
+            sqlalchemy.text("carts.customer AS customer_name"),
+            sqlalchemy.text("CAST(potion_inventory.price * cart_sales.quantity AS INTEGER) AS line_item_total"),
+            sqlalchemy.text("cart_sales.created_at AS timestamp")
+        )
+        .select_from(sqlalchemy.text("cart_sales"))
+        .join(sqlalchemy.text("potion_inventory"), sqlalchemy.text("cart_sales.potion_id = potion_inventory.id"))
+        .join(sqlalchemy.text("carts"), sqlalchemy.text("cart_sales.cart_id = carts.id"))
+        .limit(limit)
+        .offset(offset)
+        .order_by(order_by)
+    )
+
+    if customer_name:
+        stmt = stmt.where(sqlalchemy.text("carts.customer ILIKE :customer_name")).params(customer_name=f"%{customer_name}%")
+
+    if potion_sku:
+        stmt = stmt.where(sqlalchemy.text("potion_inventory.sku ILIKE :potion_sku")).params(potion_sku=f"%{potion_sku}%")
 
     with db.engine.connect() as conn:
-        # Build the base query
-        query = sqlalchemy.select(
-            db.cart_sales.c.id.label("line_item_id"),
-            db.potion_inventory.c.sku.label("item_sku"),
-            db.carts.c.customer.label("customer_name"),
-            (db.cart_sales.c.quantity * db.potion_inventory.c.price).label("line_item_total"),
-            db.cart_sales.c.created_at.label("timestamp"),
-        ).select_from(
-            db.cart_sales.join(db.potion_inventory, db.cart_sales.c.potion_id == db.potion_inventory.c.id)
-            .join(db.carts, db.cart_sales.c.cart_id == db.carts.c.id)
-        )
+        result = conn.execute(stmt)
+        line_items = result.fetchall()
 
-        # Apply filters
-        if customer_name:
-            query = query.where(db.carts.c.customer.ilike(f"%{customer_name}%"))
-        if potion_sku:
-            query = query.where(db.potion_inventory.c.sku.ilike(f"%{potion_sku}%"))
-
-        # Apply sorting
-        if sort_col == search_sort_options.customer_name:
-            order_by_column = db.carts.c.customer
-        elif sort_col == search_sort_options.item_sku:
-            order_by_column = db.potion_inventory.c.sku
-        elif sort_col == search_sort_options.line_item_total:
-            order_by_column = (db.cart_sales.c.quantity * db.potion_inventory.c.price)
-        else:  # Default to timestamp
-            order_by_column = db.cart_sales.c.created_at
-
-        if sort_order == search_sort_order.asc:
-            query = query.order_by(order_by_column)
-        else:  # Default to descending order
-            query = query.order_by(order_by_column.desc())
-
-        # Pagination
-        if search_page:
-            offset = int(search_page) * 5
-        else:
-            offset = 0
-
-        query = query.limit(5).offset(offset)
-
-        # Execute the query
-        result = conn.execute(query)
-
-        # Process the results
-        results = []
-        for row in result:
-            results.append({
-                "line_item_id": row.line_item_id,
-                "item_sku": row.item_sku,
-                "customer_name": row.customer_name,
-                "line_item_total": row.line_item_total,
-                "timestamp": row.timestamp.isoformat(),
-            })
-
-        # Determine previous and next page tokens
-        previous_page = offset // 5 - 1 if offset > 0 else None
-        next_page = offset // 5 + 1 if len(results) == 5 else None
+    # Prepare the response
+    previous_page = offset - limit if offset > 0 else None
+    next_page = offset + limit if len(line_items) == limit else None
 
     return {
         "previous": str(previous_page) if previous_page is not None else "",
         "next": str(next_page) if next_page is not None else "",
-        "results": results,
+        "results": [
+            {
+                "line_item_id": f"{row.cart_id}-{row.potion_id}",
+                "item_sku": row.item_sku,
+                "customer_name": row.customer_name,
+                "line_item_total": row.line_item_total,
+                "timestamp": row.timestamp.isoformat(),
+            }
+            for row in line_items
+        ]
     }
-
-
 class Customer(BaseModel):
     customer_name: str
     character_class: str
@@ -153,31 +192,6 @@ def set_item_quantity(cart_id: int, item_sku: str, cart_item: CartItem):
 class CartCheckout(BaseModel):
     payment: str
 
-
-
-# @router.post("/{cart_id}/checkout")
-# def checkout(cart_id: int, cart_checkout: CartCheckout):
-#     with db.engine.begin() as connection:
-#         # Add a new transaction
-#         result = connection.execute(sqlalchemy.text("INSERT INTO transactions (description) VALUES (:description) RETURNING id"), {"description": f"Checkout for cart {cart_id}"})
-#         transaction_id = result.scalar_one()
-
-#         potions_in_cart = connection.execute(sqlalchemy.text("SELECT potion_id, quantity FROM cart_sales WHERE cart_id = :cart_id "), {"cart_id": cart_id})
-
-#         total_gold = 0
-#         total_potions_bought = 0
-
-#         for potion_id, quantity in potions_in_cart:
-#             price = connection.execute(sqlalchemy.text("SELECT price FROM potion_inventory WHERE id = :potion_id"), {"potion_id": potion_id}).scalar_one()
-
-#             # Record changes in the ledger tables
-#             connection.execute(sqlalchemy.text("INSERT INTO potion_ledger_entries (transaction_id, potion_id, change_in_potion) VALUES (:transaction_id, :potion_id, :change_in_potion)"), {"transaction_id": transaction_id, "potion_id": potion_id, "change_in_potion": -quantity})
-#             connection.execute(sqlalchemy.text("INSERT INTO gold_ledger_entries (transaction_id, change_in_gold) VALUES (:transaction_id, :change_in_gold)"), {"transaction_id": transaction_id, "change_in_gold": price * quantity})
-
-#             total_gold += price * quantity
-#             total_potions_bought += quantity
-
-#     return {"total_gold": total_gold, "total_potions_bought": total_potions_bought}
     
 @router.post("/{cart_id}/checkout")
 def checkout(cart_id: int, cart_checkout: CartCheckout):
