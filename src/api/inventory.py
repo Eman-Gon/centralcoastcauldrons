@@ -43,16 +43,21 @@ def get_capacity_plan():
         # Calculate the current gold from the ledger tables
         gold = connection.execute(sqlalchemy.text("SELECT gold FROM inventory_summary_view")).scalar_one() or 0
 
-        # Calculate the total capacity units that can be purchased
-        total_capacity_units = gold // 1000
+        # # Calculate the total capacity units that can be purchased
+        # total_capacity_units = gold // 1000
 
-        # Calculate the potion capacity and ml capacity
-        potion_capacity = min(total_capacity_units, 1) * 50
-        ml_capacity = min(total_capacity_units, 1) * 10000
+        # # Calculate the potion capacity and ml capacity
+        # potion_capacity = min(total_capacity_units, 1) * 50
+        # ml_capacity = min(total_capacity_units, 1) * 10000
+
+        capacity = 0
+
+        if(gold > 2000):
+            capacity = 1
 
         return {
-            "potion_capacity": potion_capacity,
-            "ml_capacity": ml_capacity
+            "potion_capacity":capacity,
+            "ml_capacity": capacity
         }
 
 class CapacityPurchase(BaseModel):
@@ -68,10 +73,10 @@ def deliver_capacity_plan(capacity_purchase: CapacityPurchase, order_id: int):
     """
     with db.engine.begin() as connection:
         # Calculate the current gold from the ledger tables
-        gold = connection.execute(sqlalchemy.text("SELECT gold inventory_summary_view")).scalar_one() or 0
+        gold = connection.execute(sqlalchemy.text("SELECT gold from inventory_summary_view")).scalar_one() or 0
 
         # Calculate the total cost of the capacity purchase
-        total_cost = (capacity_purchase.potion_capacity // 50) * 1000 + (capacity_purchase.ml_capacity // 10000) * 1000
+        total_cost = capacity_purchase.potion_capacity + capacity_purchase.ml_capacity 
 
         if total_cost > gold:
             return "Insufficient gold to purchase the capacity plan."
@@ -81,6 +86,22 @@ def deliver_capacity_plan(capacity_purchase: CapacityPurchase, order_id: int):
         transaction_id = result.scalar_one()
 
         # Record changes in the ledger tables
-        connection.execute(sqlalchemy.text("INSERT INTO gold_ledger_entries (transaction_id, change_in_gold) VALUES (:transaction_id, :change_in_gold)"), {"transaction_id": transaction_id, "change_in_gold": -total_cost})
+        connection.execute(sqlalchemy.text("INSERT INTO gold_ledger_entries (transaction_id, change_in_gold) VALUES (:transaction_id, :change_in_gold)"), {"transaction_id": transaction_id, "change_in_gold": -1000 * total_cost})
+        
+        #Uodate global_values
+        connection.execute(sqlalchemy.text(
+                """UPDATE global_Values 
+                    SET ml_capacity_units = ml_capacity_units + :ml_units,
+                    ml_capacity = ml_capacity + 10000 * :ml_units,
+                    potion_capacity_units = potion_capacity_units + :p_units,
+                    potion_capacity = potion_capacity + 50 * :p_units
+                """
+            ),
+            {
+                "ml_units": capacity_purchase.ml_capacity,
+                "p_units": capacity_purchase.potion_capacity
+            }
+
+        )
 
     return "OK"
