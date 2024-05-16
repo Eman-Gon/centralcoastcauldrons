@@ -32,31 +32,27 @@ def get_inventory():
         }
 
 
-# Gets called once a day
 @router.post("/plan")
 def get_capacity_plan():
     """
-    Start with 1 capacity for 50 potions and 1 capacity for 10000 ml of potion. 
+    Start with 1 capacity for 50 potions and 1 capacity for 10000 ml of potion.
     Each additional capacity unit costs 1000 gold.
     """
     with db.engine.begin() as connection:
         # Calculate the current gold from the ledger tables
         gold = connection.execute(sqlalchemy.text("SELECT gold FROM inventory_summary_view")).scalar_one() or 0
 
-        # # Calculate the total capacity units that can be purchased
-        # total_capacity_units = gold // 1000
+        # Calculate the maximum capacity units that can be purchased
+        max_capacity_units = gold // 1000
 
-        # # Calculate the potion capacity and ml capacity
-        # potion_capacity = min(total_capacity_units, 1) * 50
-        # ml_capacity = min(total_capacity_units, 1) * 10000
+        # Define the desired capacity units in descending order
+        desired_capacity_units = [4, 3, 2, 1]
 
-        capacity = 0
-
-        if(gold > 2000):
-            capacity = 1
+        # Find the highest affordable capacity unit
+        capacity = next((units for units in desired_capacity_units if units <= max_capacity_units), 0)
 
         return {
-            "potion_capacity":capacity,
+            "potion_capacity": capacity,
             "ml_capacity": capacity
         }
 
