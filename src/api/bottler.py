@@ -96,7 +96,7 @@ def get_bottle_plan():
         # total_gold = connection.execute(sqlalchemy.text("SELECT gold FROM inventory_summary_view")).scalar()
 
         # Query potion_type from potion_inventory (make sure it's a list)
-        potions = connection.execute(sqlalchemy.text("SELECT * FROM potion_inventory")).fetchall()
+        potions = connection.execute(sqlalchemy.text("SELECT * FROM potion_inventory WHERE blacklisted = FALSE")).fetchall()
 
         # Make dictionary: <k,v> [id, 0]
         potion_inventory_dict = {potion.id: 0 for potion in potions}
