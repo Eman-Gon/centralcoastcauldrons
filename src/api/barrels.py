@@ -90,7 +90,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
         barrel_plan = []
 
-        for size in ['LARGE', 'MEDIUM', 'SMALL']:
+        for size in ['LARGE']:
             # Sort barrels by ascending ml_per_barrel for the current size
             sorted_barrels = sorted((barrel for barrel in wholesale_catalog if size in barrel.sku), key=lambda barrel: barrel.ml_per_barrel)
 
