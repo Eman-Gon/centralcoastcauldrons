@@ -52,8 +52,8 @@ def get_capacity_plan():
         capacity = next((units for units in desired_capacity_units if units <= max_capacity_units), 0)
 
         return {
-            "potion_capacity": capacity,
-            "ml_capacity": capacity
+            "potion_capacity": 0,
+            "ml_capacity": 0
         }
 
 class CapacityPurchase(BaseModel):
