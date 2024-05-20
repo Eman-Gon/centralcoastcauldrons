@@ -46,14 +46,14 @@ def get_capacity_plan():
         max_capacity_units = gold // 1000
 
         # Define the desired capacity units in descending order
-        desired_capacity_units = [4, 3, 2, 1]
+        desired_capacity_units = [3, 2, 1]
 
         # Find the highest affordable capacity unit
         capacity = next((units for units in desired_capacity_units if units <= max_capacity_units), 0)
 
         return {
-            "potion_capacity": 0,
-            "ml_capacity": 0
+            "potion_capacity": capacity,
+            "ml_capacity": capacity
         }
 
 class CapacityPurchase(BaseModel):
