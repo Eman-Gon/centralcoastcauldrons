@@ -83,14 +83,34 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
         barrel_plan = []
 
-        if any('LARGE' in b.sku for b in wholesale_catalog):
-            for b in [b for b in wholesale_catalog if 'LARGE' in b.sku]:
-                for color in ['green', 'red', 'blue', 'dark']:
-                    if b.potion_type[['green', 'red', 'blue', 'dark'].index(color)]:
-                        color_threshold = total_ml_capacity // 4
-                        remaining_color_capacity = color_threshold - current_ml[color]
-                        overall_remaining_capacity = total_ml_capacity - sum(current_ml.values())
+        for color in ['green', 'red', 'blue', 'dark']:
+            color_threshold = total_ml_capacity // 4
+            remaining_color_capacity = color_threshold - current_ml[color]
+            overall_remaining_capacity = total_ml_capacity - sum(current_ml.values())
 
+            # Check for large barrels first
+            large_barrels = [b for b in wholesale_catalog if 'LARGE' in b.sku and b.potion_type[['green', 'red', 'blue', 'dark'].index(color)]]
+            if large_barrels:
+                for b in large_barrels:
+                    qty = min(
+                        gold // b.price,
+                        remaining_color_capacity // b.ml_per_barrel,
+                        overall_remaining_capacity // b.ml_per_barrel,
+                        b.quantity
+                    )
+
+                    if qty > 0:
+                        barrel_plan.append({"sku": b.sku, "quantity": qty})
+                        gold -= b.price * qty
+                        current_ml[color] += b.ml_per_barrel * qty
+                        remaining_color_capacity -= b.ml_per_barrel * qty
+                        overall_remaining_capacity -= b.ml_per_barrel * qty
+
+            # If no large barrels, check for medium barrels
+            else:
+                medium_barrels = [b for b in wholesale_catalog if 'MEDIUM' in b.sku and b.potion_type[['green', 'red', 'blue', 'dark'].index(color)]]
+                if medium_barrels:
+                    for b in medium_barrels:
                         qty = min(
                             gold // b.price,
                             remaining_color_capacity // b.ml_per_barrel,
@@ -102,5 +122,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
                             barrel_plan.append({"sku": b.sku, "quantity": qty})
                             gold -= b.price * qty
                             current_ml[color] += b.ml_per_barrel * qty
+                            remaining_color_capacity -= b.ml_per_barrel * qty
+                            overall_remaining_capacity -= b.ml_per_barrel * qty
 
     return barrel_plan
