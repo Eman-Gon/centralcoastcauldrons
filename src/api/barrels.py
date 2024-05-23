@@ -20,18 +20,19 @@ class Barrel(BaseModel):
 @router.post("/deliver/{order_id}")
 def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
     total_used = {
-        "green": 0,
         "red": 0,
+        "green": 0,
         "blue": 0,
         "dark": 0
     }
     total_price = 0
 
     for barrel in barrels_delivered:
-        if barrel.potion_type == [0, 1, 0, 0]:
-            total_used["green"] += barrel.ml_per_barrel * barrel.quantity
-        elif barrel.potion_type == [1, 0, 0, 0]:
+        
+        if barrel.potion_type == [1, 0, 0, 0]:
             total_used["red"] += barrel.ml_per_barrel * barrel.quantity
+        elif barrel.potion_type == [0, 1, 0, 0]:
+            total_used["green"] += barrel.ml_per_barrel * barrel.quantity
         elif barrel.potion_type == [0, 0, 1, 0]:
             total_used["blue"] += barrel.ml_per_barrel * barrel.quantity
         elif barrel.potion_type == [0, 0, 0, 1]:
@@ -64,7 +65,7 @@ def post_deliver_barrels(barrels_delivered: list[Barrel], order_id: int):
                                     }
                                    )
         
-    print(f"Total Green ML: {total_used['green']}, Total Red ML: {total_used['red']}, Total Blue ML: {total_used['blue']}, Total Dark ML: {total_used['dark']}, Total Price: {total_price}")
+    print(f"Total Red ML: {total_used['red']}, Total Green ML: {total_used['green']}, Total Blue ML: {total_used['blue']}, Total Dark ML: {total_used['dark']}, Total Price: {total_price}")
     return "OK"
 
 @router.post("/plan")
@@ -72,7 +73,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
     with db.engine.begin() as connection:
         # Query current mL for each color
         current_ml = {}
-        for color in ['green', 'red', 'blue', 'dark']:
+        for color in ['red', 'green', 'blue', 'dark']:
             current_ml[color] = connection.execute(sqlalchemy.text(f"SELECT COALESCE(SUM(ml_ledger_entries.change_in_ml), 0) FROM ml_ledger_entries WHERE color = '{color}'")).scalar_one() or 0
 
         # Query total mL capacity
@@ -83,13 +84,13 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
         barrel_plan = []
 
-        for color in ['green', 'red', 'blue', 'dark']:
+        for color in ['red', 'green', 'blue', 'dark']:
             color_threshold = total_ml_capacity // 4
             remaining_color_capacity = color_threshold - current_ml[color]
             overall_remaining_capacity = total_ml_capacity - sum(current_ml.values())
 
             # Check for large barrels first
-            large_barrels = [b for b in wholesale_catalog if 'LARGE' in b.sku and b.potion_type[['green', 'red', 'blue', 'dark'].index(color)]]
+            large_barrels = [b for b in wholesale_catalog if 'LARGE' in b.sku and b.potion_type[['red','green', 'blue', 'dark'].index(color)]]
             if large_barrels:
                 for b in large_barrels:
                     qty = min(
@@ -108,7 +109,7 @@ def get_wholesale_purchase_plan(wholesale_catalog: list[Barrel]):
 
             # If no large barrels, check for medium barrels
             else:
-                medium_barrels = [b for b in wholesale_catalog if 'MEDIUM' in b.sku and b.potion_type[['green', 'red', 'blue', 'dark'].index(color)]]
+                medium_barrels = [b for b in wholesale_catalog if 'MEDIUM' in b.sku and b.potion_type[[ 'red', 'green','blue', 'dark'].index(color)]]
                 if medium_barrels:
                     for b in medium_barrels:
                         qty = min(
